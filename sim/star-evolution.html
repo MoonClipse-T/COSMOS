@@ -1,0 +1,1076 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>별의 진화 3D 애니메이터</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--panel:rgba(6,10,22,.6);--line:rgba(150,180,255,.16);--txt:#e9efff;--sub:#9aabd4;--acc:#ffd27a}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#000;color:var(--txt);font-family:'Noto Sans KR',system-ui,sans-serif;overflow:hidden}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.panel{position:fixed;background:var(--panel);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:14px}
+button{font:inherit;color:inherit;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:9px;padding:6px 11px;cursor:pointer;transition:.15s}
+button:hover{background:rgba(255,255,255,.14)}
+button.on{background:var(--acc);color:#1a1200;border-color:var(--acc);font-weight:700}
+header{top:12px;left:50%;transform:translateX(-50%);display:flex;gap:5px;padding:6px;align-items:center;max-width:calc(100vw - 24px);overflow-x:auto}
+header h1{font-size:15px;font-weight:900;padding:0 10px 0 6px;white-space:nowrap;letter-spacing:-.02em}
+header button{white-space:nowrap;font-size:13px;line-height:1.25;text-align:center}
+header button small{display:block;font-size:10.5px;opacity:.75;font-weight:500}
+#info{top:74px;left:12px;width:340px;padding:16px 16px 14px;max-height:calc(100vh - 210px);overflow:auto}
+#info .tag{font-size:11.5px;color:var(--acc);font-weight:700;letter-spacing:.04em}
+#info h2{font-size:21px;font-weight:900;margin:3px 0 2px;letter-spacing:-.03em;line-height:1.25}
+#info .ex{font-size:12.5px;color:var(--sub);margin-bottom:10px}
+#stats{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px;margin:8px 0 10px;padding:10px 12px;background:rgba(255,255,255,.04);border-radius:10px}
+#stats b{color:var(--sub);font-weight:500}
+#desc{font-size:13.5px;line-height:1.65;color:#d6def5}
+#legend{margin-top:10px;font-size:12px;display:none}
+#legend div{display:flex;align-items:center;gap:7px;margin:3px 0}
+#legend i{width:12px;height:12px;border-radius:3px;flex:none}
+#sizeBox{margin-top:12px}
+#sizeBox .h{font-size:11.5px;color:var(--sub);margin-bottom:4px}
+#hrBox{top:74px;right:12px;padding:10px 10px 6px}
+.cap{font-size:11.5px;color:var(--sub);margin-bottom:4px;font-weight:500}
+#pulseBox{right:12px;padding:10px;display:none}
+#bar{left:12px;right:12px;bottom:12px;padding:10px 14px 12px}
+#row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#chips{display:flex;gap:4px;flex:1;min-width:200px;overflow-x:auto}
+#chips button{font-size:12px;padding:5px 9px;white-space:nowrap;position:relative;overflow:hidden}
+#chips button .fill{position:absolute;left:0;bottom:0;height:3px;background:var(--acc);width:0}
+#chips button.on .fill{background:#1a1200}
+#scrub{width:100%;margin-top:9px;accent-color:#ffd27a;cursor:pointer}
+.sep{width:1px;height:24px;background:var(--line)}
+#tog{display:flex;gap:4px}
+#tog button{font-size:12px}
+#title{position:fixed;top:30%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;opacity:0;transition:opacity 1s;text-shadow:0 2px 30px #000}
+#title .a{font-size:14px;color:var(--acc);font-weight:700;letter-spacing:.2em}
+#title .b{font-size:46px;font-weight:900;letter-spacing:-.03em}
+#caption{position:fixed;bottom:118px;left:50%;transform:translateX(-50%);font-size:17px;font-weight:700;padding:9px 18px;background:rgba(0,0,0,.45);border-radius:30px;border:1px solid var(--line);white-space:nowrap;transition:opacity .4s;pointer-events:none}
+#flash{position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 50%,#fff 0%,#e8f0ff 35%,rgba(200,220,255,.5) 100%);opacity:0}
+#hint{position:fixed;right:14px;bottom:110px;font-size:11.5px;color:var(--sub);text-align:right;pointer-events:none;line-height:1.6}
+#err{position:fixed;inset:0;display:none;align-items:center;justify-content:center;font-size:16px;text-align:center;padding:30px;line-height:1.7}
+@media (max-width:900px){#info{width:calc(100vw - 24px);max-height:34vh;top:auto;bottom:150px}#hrBox,#hint{display:none}#caption{bottom:auto;top:76px;font-size:14px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="flash"></div>
+<header class="panel"><h1>✦ 별의 진화 3D</h1><span id="masses" style="display:flex;gap:5px"></span></header>
+<aside id="info" class="panel">
+  <div class="tag" id="tag"></div>
+  <h2 id="pname"></h2>
+  <div class="ex" id="pex"></div>
+  <div id="stats"></div>
+  <div id="desc"></div>
+  <div id="legend"></div>
+  <div id="sizeBox"><div class="h">실제 크기 비교</div><canvas id="size" width="308" height="74" style="width:308px;height:74px"></canvas></div>
+</aside>
+<div id="hrBox" class="panel"><div class="cap">H-R도 — 진화 경로</div><canvas id="hr" style="width:280px;height:240px"></canvas></div>
+<div id="pulseBox" class="panel"><div class="cap">펄서 신호 (관측자 방향 빔 세기)</div><canvas id="pulse" style="width:280px;height:70px"></canvas></div>
+<div id="title"><div class="a" id="ta"></div><div class="b" id="tb"></div></div>
+<div id="caption"></div>
+<div id="hint">드래그: 회전 · 휠: 확대/축소<br>Space: 재생/정지 · ← →: 단계 이동</div>
+<footer id="bar" class="panel">
+  <div id="row">
+    <button id="restart" title="처음부터">⏮</button>
+    <button id="play" style="min-width:44px">❚❚</button>
+    <button id="spd">1×</button>
+    <div class="sep"></div>
+    <div id="chips"></div>
+    <div class="sep"></div>
+    <div id="tog">
+      <button id="tCut" title="별의 내부 구조를 잘라서 보기">단면 보기</button>
+      <button id="tRot" class="on" title="카메라 자동 회전">자동 회전</button>
+      <button id="tQ" title="해상도 (느린 컴퓨터는 '보통')">화질: 보통</button>
+    </div>
+  </div>
+  <input id="scrub" type="range" min="0" max="100" step="0.01" value="0">
+</footer>
+<div id="err"></div>
+
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const $ = id => document.getElementById(id);
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const easeInOut = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const geo = (a, b, t) => a * Math.pow(b / a, t);
+const vis = R => R >= 1 ? Math.pow(R, 0.85) : Math.pow(R, 0.45);   // 실제 반지름(R☉) → 화면 반지름 (거성은 거의 실제 비율)
+const lum = (R, T) => R * R * Math.pow(T / 5778, 4);   // 슈테판-볼츠만
+
+// ───────────────────────── 데이터 ─────────────────────────
+const LAYERS = {
+  proto: [[1, '#ff8a4a', '완전 대류 (중력 수축으로 가열)', 1]],
+  msLow: [[0.45, '#ffd27a', '핵: 수소 → 헬륨 핵융합'], [1, '#ff7a3a', '대류층 (별 전체가 대류)', 1]],
+  msSun: [[0.25, '#fff2b0', '핵: 수소 → 헬륨 (p-p 연쇄)'], [0.7, '#ffb347', '복사층'], [1, '#ff6f2e', '대류층', 1]],
+  msHi: [[0.3, '#eef4ff', '대류 핵: CNO 순환', 1], [1, '#8fb6ff', '복사층']],
+  giant: [[0.05, '#f4f4f4', '헬륨 핵 (수축 중)'], [0.09, '#ffe066', '수소 껍질 연소'], [1, '#ff5a2a', '거대한 대류 외피', 1]],
+  hb: [[0.12, '#ffffff', '헬륨 → 탄소·산소 핵융합'], [0.2, '#ffe066', '수소 껍질 연소'], [1, '#ffa040', '외피', 1]],
+  ceph: [[0.1, '#ffffff', '헬륨 핵융합'], [0.16, '#ffe066', '수소 껍질 연소'], [1, '#ffd27a', '맥동하는 외피', 1]],
+  agb: [[0.05, '#cfd8ff', '탄소·산소 핵'], [0.08, '#ffffff', '헬륨 껍질 연소'], [0.11, '#ffe066', '수소 껍질 연소'], [1, '#e8402a', '대류 외피 (맥동)', 1]],
+  rsg: [[0.07, '#8a8f99', '철 핵 (핵융합 불가)'], [0.13, '#7fd1ff', '규소 → 철'], [0.2, '#b28dff', '산소 → 규소'], [0.27, '#ff7ad9', '네온 → 산소'], [0.34, '#ffb070', '탄소 → 네온'], [0.45, '#fff07a', '헬륨 → 탄소'], [0.58, '#ffffff', '수소 → 헬륨'], [1, '#e2452b', '수소 외피 (대류)', 1]],
+  lbv: [[0.25, '#e8f0ff', '헬륨 핵'], [1, '#a8c8ff', '불안정한 외피']],
+  wr: [[0.45, '#ffffff', '헬륨 → 탄소·산소'], [1, '#c8b0ff', '드러난 헬륨층 (수소 없음)']],
+  wd: [[0.93, '#dfe8ff', '탄소·산소 (전자 축퇴 물질)'], [1, '#9fd0ff', '얇은 헬륨·수소 대기']],
+  wdHe: [[0.93, '#f0f0ff', '헬륨 (전자 축퇴 물질)'], [1, '#9fd0ff', '얇은 수소 대기']],
+  ns: [[0.6, '#b9c6ff', '초유체 중성자 핵'], [0.9, '#8aa0e0', '중성자가 풍부한 내부 지각'], [1, '#c0c0d0', '철 원자핵 지각']],
+};
+
+const CLOUD = {
+  kind: 'cloud', name: '분자구름의 붕괴', dur: 11, age: '약 100만 년',
+  ex: '실제 예: 독수리 성운 「창조의 기둥」, 바너드 68',
+  desc: '온도 약 10 K의 차갑고 어두운 가스·먼지 구름이 자체 중력으로 수축합니다. 밀도가 높은 덩어리가 회전하며 납작해지고, 중심부가 점점 뜨거워집니다. 붉은 빛은 주변 별빛에 들뜬 수소(Hα)가 내는 빛입니다.',
+  stats: [['온도', '약 10~20 K'], ['크기', '수 광년'], ['구성', '수소 분자 + 먼지']],
+  steps: [[0, '거대한 분자구름 — 수소 분자와 먼지'], [.3, '중력 수축 시작: 밀도 높은 덩어리가 붕괴'], [.62, '회전이 빨라지며 납작해짐 (각운동량 보존)'], [.85, '중심부가 수천 K로 가열 → 원시별 탄생']],
+};
+const proto = (R, T, dur, age, big) => ({
+  kind: 'proto', name: '원시별', dur, R, T, age, layers: 'proto',
+  ex: '실제 예: HL 타우리 원반(ALMA), HH 30 제트, 황소자리 T',
+  desc: big ? '무거운 원시별은 불과 수만 년 만에 빠르게 수축합니다. 핵융합 전부터 강한 빛을 내며, 양극 제트와 복사압으로 주변 구름을 밀어냅니다.'
+            : '중력 수축 에너지로 빛나는 아기 별입니다. 아직 핵융합은 없으며, 주변 원시행성원반에서 물질을 끌어당기고 양극 방향으로 제트를 뿜어냅니다. 원반의 틈에서는 행성이 자라납니다.',
+  steps: [[0, '원반의 물질이 별로 떨어짐 (강착)'], [.22, '양극 제트 분출 → 허빅-아로 천체'], [.5, '원반에 고리와 틈 형성 — 행성의 탄생지'], [.84, '중심 온도 1000만 K → 수소 핵융합 점화!']],
+});
+
+const MASSES = [
+  { label: '0.3 M☉', sub: '적색왜성', seed: 3.1, phases: [
+    CLOUD,
+    proto([2.5, 0.42], [3000, 3300], 10, '약 1억 년'),
+    { kind: 'ms', name: '주계열성 — 적색왜성', dur: 14, R: [0.3, 0.33], T: [3300, 3500], age: '약 1조 년 이상', layers: 'msLow',
+      ex: '실제 예: 프록시마 센타우리, 바너드 별',
+      desc: '중심에서 수소가 헬륨으로 핵융합합니다. 별 전체가 대류해 수소를 거의 다 쓸 수 있어 수명이 수조 년에 이릅니다. 우리 은하 별의 약 75%가 적색왜성이며, 표면에서 강한 플레어가 자주 터집니다.',
+      steps: [[0, '별 전체가 대류 — 수소가 골고루 섞임'], [.4, '자기장 에너지가 터지는 플레어 (밝은 점)'], [.75, '수조 년 동안 천천히 소모']] },
+    { kind: 'bd', name: '청색왜성 (이론상 단계)', dur: 10, R: [0.33, 0.25], T: [3500, 8500], age: '수조 년 후', layers: 'msLow',
+      ex: '아직 우주에 존재하지 않음 (우주 나이 138억 년)',
+      desc: '수소를 거의 다 소모한 적색왜성은 더 뜨겁고 푸르게 변할 것으로 예측됩니다. 그러나 이 과정은 우주의 나이보다 훨씬 오래 걸려서, 아직 한 번도 관측된 적 없는 이론상의 별입니다.',
+      steps: [[0, '수소가 줄며 별이 수축·가열'], [.6, '푸른 빛으로 변함 — 아직 우주에 없음!']] },
+    { kind: 'wd', name: '헬륨 백색왜성', dur: 10, R: [0.25, 0.016], T: [8500, 4000], rEase: 'out', age: '수조 년 이상', layers: 'wdHe',
+      ex: '먼 미래의 천체',
+      desc: '핵융합이 끝난 별이 지구 정도 크기로 수축한 헬륨 백색왜성입니다. 더 이상 에너지를 만들지 않고 남은 열로만 빛나며 아주 천천히 식어갑니다.',
+      steps: [[0, '핵융합 종료 → 중력 수축'], [.35, '전자 축퇴압이 수축을 멈춤'], [.7, '남은 열로만 빛나며 냉각']] },
+  ]},
+  { label: '1 M☉', sub: '태양형 별', seed: 7.7, phases: [
+    CLOUD,
+    proto([5, 1.0], [4000, 5500], 10, '약 5천만 년'),
+    { kind: 'ms', name: '주계열성 (G형)', dur: 14, R: [0.9, 1.3], T: [5600, 5800], age: '약 100억 년', layers: 'msSun',
+      ex: '실제 예: 태양 (현재 약 46억 살)',
+      desc: '중심핵에서 수소가 헬륨으로 핵융합(p-p 연쇄)하며, 중력과 내부 압력이 평형을 이뤄 안정적으로 빛납니다. 표면에는 쌀알무늬(대류 세포)와 흑점이 보이고, 가장자리는 어둡게 보입니다(주연 감광).',
+      steps: [[0, '수소 → 헬륨 핵융합으로 안정 (정역학 평형)'], [.35, '쌀알무늬: 뜨거운 가스가 끓어오르는 대류 세포'], [.65, '흑점: 자기장 때문에 온도가 낮은 영역'], [.85, '헬륨이 쌓이며 조금씩 밝아짐']] },
+    { kind: 'giant', name: '적색거성', dur: 14, R: [1.3, 170], T: [5600, 3100], rEase: 'hold', fitK: 1.05, age: '약 10억 년', layers: 'giant',
+      ex: '실제 예: 알데바란, 아르크투루스',
+      desc: '중심의 수소가 고갈되면 헬륨 핵이 수축하고, 그 바깥 껍질에서 수소가 타며 외피가 크게 부풀어 오릅니다. 표면은 식어 붉어지지만 광도는 수천 배 커집니다. 태양은 수성과 금성을 삼킬 것으로 예상됩니다.',
+      steps: [[0, '중심 수소 고갈 → 헬륨 핵 수축'], [.3, '핵 바깥 껍질에서 수소 핵융합'], [.58, '외피 팽창, 표면 온도 하강 → 붉은색'], [.82, '거대한 대류 세포가 표면을 덮음']] },
+    { kind: 'hb', name: '헬륨 섬광 → 수평가지', dur: 9, R: [170, 11], T: [3100, 4900], rEase: 'out', age: '약 1억 년', layers: 'hb',
+      ex: '실제 예: 거문고자리 RR형 변광성',
+      desc: '헬륨 핵이 1억 K에 도달하면 헬륨 섬광과 함께 헬륨 → 탄소 핵융합(트리플 알파 반응)이 시작됩니다. 별은 다시 작아지고 뜨거워져 한동안 안정 상태(수평가지)에 머뭅니다.',
+      steps: [[0, '헬륨 섬광! (중심부에서 수 초간)'], [.25, '트리플 알파: 헬륨 3개 → 탄소'], [.6, '별이 수축하며 다시 안정']] },
+    { kind: 'agb', name: '점근거성가지(AGB) 별', dur: 13, R: [11, 220], T: [4900, 2900], age: '약 2천만 년', layers: 'agb',
+      ex: '실제 예: 미라(고래자리 ο), 바다뱀자리 R',
+      desc: '중심에 탄소·산소 핵이 쌓이고, 바깥 두 겹의 껍질(헬륨·수소)에서 핵융합이 일어납니다. 별은 맥동하며 다시 크게 부풀고, 강한 항성풍으로 가스와 먼지를 우주로 날려 보냅니다.',
+      steps: [[0, '두 겹의 껍질 핵융합 (헬륨 · 수소)'], [.35, '불안정한 맥동 시작'], [.65, '외피가 날아가며 먼지 껍질 형성']] },
+    { kind: 'pn', name: '행성상 성운', dur: 15, R: [220, 0.02], T: [3000, 110000], rEase: 'out', tEase: 'out', age: '약 1~2만 년',
+      ex: '실제 예: 고리 성운 M57, 나선 성운 NGC 7293',
+      desc: '벗겨진 외피 가스가 드러난 뜨거운 중심핵(10만 K)의 자외선을 받아 형광등처럼 빛납니다. 청록색은 산소(OIII), 붉은색은 수소(Hα)·질소의 빛입니다. 옛 망원경으로 행성처럼 보여 붙은 이름일 뿐 행성과는 관계 없습니다.',
+      steps: [[0, '외피가 우주로 떨어져 나감'], [.18, '뜨거운 중심핵 노출 → 강한 자외선'], [.42, '가스 이온화 → 형광 (청록 OIII · 적색 Hα)'], [.78, '성운이 팽창하며 점점 희미해짐']] },
+    { kind: 'wd', name: '백색왜성', dur: 12, R: [0.012, 0.012], T: [110000, 6000], age: '수천억 년 이상 냉각', layers: 'wd',
+      ex: '실제 예: 시리우스 B, 고리 성운의 중심별',
+      desc: '남은 탄소·산소 핵이 지구 크기로 압축된 별입니다. 각설탕 크기에 1톤이 넘는 밀도로, 전자 축퇴압이 중력을 버팁니다. 핵융합 없이 남은 열로만 빛나며 결국 차갑고 어두운 흑색왜성이 됩니다.',
+      steps: [[0, '행성상 성운이 흩어져 사라짐'], [.45, '핵융합 없이 남은 열로만 빛남'], [.8, '천천히 식어 → 흑색왜성 (먼 미래)']] },
+  ]},
+  { label: '5 M☉', sub: '중간 질량', seed: 12.3, phases: [
+    CLOUD,
+    proto([8, 2.6], [5000, 17000], 9, '약 50만 년'),
+    { kind: 'ms', name: '주계열성 (B형)', dur: 13, R: [2.6, 4.2], T: [17500, 15500], age: '약 1억 년', layers: 'msHi',
+      ex: '실제 예: 레굴루스, 아케르나르',
+      desc: '태양보다 5배 무겁지만 약 600배 밝게 타서 수명이 약 1억 년으로 훨씬 짧습니다. 청백색으로 빛나며, 중심핵에서는 탄소·질소·산소를 촉매로 하는 CNO 순환 핵융합이 일어납니다.',
+      steps: [[0, 'CNO 순환으로 빠르게 수소 소모'], [.5, '표면 대류가 거의 없어 매끈한 표면'], [.8, '태양보다 100배 빠르게 진화']] },
+    { kind: 'giant', name: '적색거성', dur: 12, R: [4.2, 60], T: [15500, 4300], tEase: 'out', rEase: 'hold', fitK: 1.05, age: '약 300만 년', layers: 'giant',
+      ex: '실제 예: 카펠라 Aa',
+      desc: '중심 수소가 고갈되면 껍질에서 수소가 타며 외피가 부풀어 적색거성이 됩니다. 무거운 별일수록 이 과정이 빠르게 진행됩니다.',
+      steps: [[0, '중심 수소 고갈 → 껍질 연소'], [.5, '외피 팽창 · 냉각 → 붉은색']] },
+    { kind: 'ceph', name: '청색 고리 — 세페이드 변광성', dur: 11, R: [60, 45], T: [4300, 6000], age: '약 2천만 년', layers: 'ceph',
+      ex: '실제 예: 북극성, 세페우스자리 δ',
+      desc: '헬륨 핵융합이 시작되면 별이 잠시 뜨거워지며 HR도의 「불안정띠」를 지납니다. 이때 외피가 규칙적으로 부풀었다 줄어드는 세페이드 변광성이 됩니다. 주기가 길수록 밝아서, 우주의 거리를 재는 「표준 촛불」로 쓰입니다.',
+      steps: [[0, '헬륨 핵융합 시작 → 청색 고리'], [.3, '불안정띠: 규칙적인 맥동'], [.6, '주기-광도 관계 → 은하까지 거리 측정']] },
+    { kind: 'agb', name: '점근거성가지(AGB) 별', dur: 13, R: [45, 400], T: [6000, 2900], age: '약 500만 년', layers: 'agb',
+      ex: '실제 예: 미라형 변광성',
+      desc: '탄소·산소 핵 주위 두 겹의 껍질에서 핵융합이 일어나며 태양의 400배까지 부풉니다. 맥동과 함께 막대한 양의 가스·먼지를 방출합니다.',
+      steps: [[0, '두 겹의 껍질 핵융합'], [.4, '강한 맥동과 항성풍'], [.7, '먼지 껍질 형성']] },
+    { kind: 'pn', name: '쌍극 행성상 성운', dur: 15, R: [400, 0.015], T: [3000, 150000], rEase: 'out', tEase: 'out', age: '약 1~2만 년', bip: true,
+      ex: '실제 예: 나비 성운 NGC 6302, 아령 성운 M27',
+      desc: '무거운 별은 적도 방향의 짙은 먼지 띠가 가스를 막아서, 가스가 양쪽 극 방향으로 분출되어 나비·모래시계 모양의 성운을 만듭니다. 중심별은 15만 K가 넘는 매우 뜨거운 별입니다.',
+      steps: [[0, '외피 분출'], [.2, '적도의 먼지 띠가 가스를 가로막음'], [.45, '양쪽 극으로 분출 → 나비 모양'], [.78, '자외선에 이온화된 가스가 빛남']] },
+    { kind: 'wd', name: '무거운 백색왜성', dur: 12, R: [0.009, 0.009], T: [150000, 7000], age: '수천억 년 이상 냉각', layers: 'wd',
+      ex: '실제 예: 시리우스 B (태양 질량 약 1배)',
+      desc: '태양 질량의 약 0.9배가 지구보다 작은 크기로 압축된 무거운 백색왜성입니다. 백색왜성은 무거울수록 더 작아지며, 태양 질량의 1.4배(찬드라세카르 한계)를 넘을 수 없습니다.',
+      steps: [[0, '성운이 흩어짐'], [.45, '무거울수록 더 작은 백색왜성'], [.8, '찬드라세카르 한계: 1.4 M☉']] },
+  ]},
+  { label: '20 M☉', sub: '무거운 별', seed: 18.9, phases: [
+    CLOUD,
+    proto([12, 7], [8000, 33000], 8, '약 10만 년', true),
+    { kind: 'ms', name: '주계열성 (O형)', dur: 13, R: [7, 10], T: [33000, 29000], age: '약 800만 년', layers: 'msHi',
+      ex: '실제 예: 오리온 허리띠의 알니탁·민타카',
+      desc: '표면 온도 3만 K가 넘는 푸른 별입니다. 엄청난 복사압으로 강한 항성풍을 내뿜으며 질량을 잃습니다. 연료를 매우 빠르게 소모해 수명이 1000만 년도 되지 않습니다.',
+      steps: [[0, '태양의 수만 배 광도'], [.4, '복사압이 만드는 강한 항성풍'], [.75, '연료를 빠르게 소모']] },
+    { kind: 'rsg', name: '적색초거성', dur: 17, g: 2.1, R: [10, 950], T: [29000, 3500], tEase: 'out', rEase: 'hold', fitK: 1.14, age: '약 100만 년', layers: 'rsg',
+      ex: '실제 예: 베텔게우스, 안타레스',
+      desc: '중심에서 헬륨 → 탄소 → 네온 → 산소 → 규소 순으로 점점 무거운 원소가 핵융합되어 「양파 껍질」 구조가 됩니다(단면 보기). 반지름이 태양의 약 1000배로, 태양 자리에 놓으면 목성 궤도까지 삼킵니다.',
+      steps: [[0, '수소 고갈 → 거대하게 팽창'], [.3, '거대한 대류 세포 몇 개가 표면을 덮음'], [.52, '먼지 분출 → 대감광 (베텔게우스 2019~2020)'], [.76, '규소 → 철: 마지막 단 하루!'], [.9, '철은 핵융합 에너지를 낼 수 없음 → 붕괴 직전']] },
+    { kind: 'sn', name: 'II형 초신성 폭발', dur: 15, age: '수 초 ~ 수 개월',
+      ex: '실제 예: SN 1987A, 1054년 초신성(→ 게 성운), 카시오페이아 A',
+      desc: '철 핵이 1초도 안 되어 지구 크기에서 지름 20 km로 붕괴합니다. 튕겨 나온 충격파가 별을 찢으며, 수 주 동안 은하 전체만큼 밝게 빛납니다. 이때 금·우라늄 같은 무거운 원소가 만들어져 우주로 흩어집니다.',
+      stats: [['최대 광도', '태양의 약 10억 배'], ['폭발 에너지', '10⁴⁴ J'], ['팽창 속도', '초속 1만 km 이상']],
+      steps: [[0, '철 핵 붕괴 (0.1초, 광속의 1/4)'], [.045, '중성미자 폭발 — 에너지의 99%'], [.075, '충격파가 표면을 돌파 → 섬광!'], [.16, '초신성: 태양의 10억 배 밝기'], [.45, '불안정성 → 손가락 모양 필라멘트'], [.75, '무거운 원소가 우주로 → 다음 세대 별과 행성의 재료']] },
+    { kind: 'ns', name: '중성자별 · 펄서', dur: 17, age: '수백만 년 동안 펄서 활동', layers: 'ns',
+      ex: '실제 예: 게 성운(M1)과 게 펄서, 벨라 펄서',
+      desc: '태양보다 무거운 질량이 지름 약 20 km로 압축된 중성자별입니다. 각설탕 하나 크기가 약 10억 톤! 자기장 축을 따라 빛의 빔이 나오며, 자전할 때 등대처럼 지구를 쓸고 지나가면 「펄스」로 관측됩니다.',
+      stats: [['반지름', '약 10 km'], ['질량', '태양의 약 1.4배'], ['표면 온도', '약 100만 K'], ['자전 주기', '0.033초 (게 펄서)'], ['자기장', '지구의 약 1조 배']],
+      steps: [[0, '초신성 잔해 = 게 성운 (1054년 폭발)'], [.22, '중심의 펄서 — 자기장 축 ≠ 자전축'], [.45, '빔이 우리를 향할 때마다 펄스 (오른쪽 그래프)'], [.72, '실제 게 펄서는 초당 30회 회전 (여기선 느리게)']] },
+  ]},
+  { label: '40 M☉', sub: '초거대 질량', seed: 25.4, phases: [
+    CLOUD,
+    proto([15, 12], [10000, 44000], 8, '약 5만 년', true),
+    { kind: 'ms', name: '주계열성 (O형 초거대)', dur: 12, R: [12, 16], T: [44000, 40000], age: '약 400만 년', layers: 'msHi',
+      ex: '실제 예: 제타 퍼피스, 용골자리 성운의 별들',
+      desc: '우주에서 가장 밝고 뜨거운 별 중 하나로 태양의 수십만 배 밝습니다. 초속 2000 km가 넘는 항성풍으로 막대한 질량을 잃습니다.',
+      steps: [[0, '태양의 수십만 배 광도'], [.45, '초속 2000 km의 항성풍'], [.8, '수백만 년 만에 연료 고갈']] },
+    { kind: 'lbv', name: '밝은 청색 변광성 (LBV) 대분출', dur: 13, R: [16, 90], T: [40000, 16000], age: '수만 년', layers: 'lbv',
+      ex: '실제 예: 용골자리 에타 & 호문쿨루스 성운 (1843년 대분출)',
+      desc: '너무 밝아 복사압이 중력과 맞먹는 불안정한 상태입니다. 갑작스러운 대분출로 태양 질량 10배가 넘는 가스를 내뿜어, 쌍극 모양의 먼지 성운을 만듭니다.',
+      steps: [[0, '에딩턴 한계에 근접 — 불안정'], [.22, '대분출! 한때 하늘에서 두 번째로 밝은 별'], [.48, '쌍극 먼지 성운(호문쿨루스) 형성'], [.78, '먼지가 별빛을 산란해 주황빛']] },
+    { kind: 'wr', name: '볼프-레이에 별', dur: 12, R: [90, 2], T: [16000, 110000], rEase: 'out', tEase: 'out', age: '수십만 년', layers: 'wr',
+      ex: '실제 예: WR 124와 M1-67 성운, 초승달 성운 NGC 6888',
+      desc: '강한 항성풍으로 수소 외피가 모두 벗겨져 뜨거운 헬륨·탄소 층이 드러난 별입니다. 표면 온도가 10만 K에 달하며, 초속 2000 km 이상의 항성풍이 주변 가스를 밀어내 거품 성운을 만듭니다.',
+      steps: [[0, '수소 외피가 모두 벗겨짐'], [.35, '10만 K의 헬륨 표면 노출'], [.6, '항성풍이 거품 성운을 만듦']] },
+    { kind: 'sn', name: '극초신성 · 감마선 폭발', dur: 15, age: '수 초 ~ 수 개월', grb: true,
+      ex: '실제 예: GRB 221009A (역대 가장 밝은 감마선 폭발), SN 1998bw',
+      desc: '철 핵이 너무 무거워 중성자별로도 버티지 못하고 곧바로 블랙홀로 붕괴합니다. 빠르게 자전하던 별은 양극으로 광속에 가까운 제트를 뿜어, 우주에서 가장 강력한 폭발인 「감마선 폭발」을 일으킵니다.',
+      stats: [['폭발 에너지', '보통 초신성의 약 10배'], ['제트 속도', '광속의 99.9%'], ['감마선 지속', '수 초 ~ 수 분']],
+      steps: [[0, '핵 붕괴 → 블랙홀 탄생'], [.06, '광속 99.9%의 제트 → 감마선 폭발'], [.2, '극초신성: 보통 초신성의 10배 에너지'], [.6, '잔해 일부가 블랙홀로 다시 떨어짐']] },
+    { kind: 'bh', name: '블랙홀', dur: 18, age: '사실상 영원 (호킹 복사로 10⁶⁷년 이상)',
+      ex: '실제 예: 백조자리 X-1 (21 M☉) · EHT가 촬영한 M87*, 궁수자리 A*',
+      desc: '빛조차 빠져나올 수 없는 시공간 영역입니다. 사건의 지평선 바깥에서 회전하는 강착원반이 수백만 도로 가열되어 빛납니다. 중력이 빛을 휘게 해(중력 렌즈) 원반 뒷면이 위아래로 휘어져 보이고, 다가오는 쪽은 도플러 효과로 더 밝게 보입니다.',
+      stats: [['질량', '태양의 약 10~15배'], ['사건의 지평선', '반지름 약 30~45 km'], ['탈출 속도', '광속(30만 km/s) 초과']],
+      steps: [[0, '블랙홀 탄생 — 잔해가 다시 떨어짐'], [.22, '강착원반 형성, 수백만 K로 가열'], [.45, '중력 렌즈: 원반 뒷면이 위·아래로 보임'], [.65, '광자 고리와 검은 그림자 (사건의 지평선)'], [.82, '드래그로 돌려보며 렌즈 효과를 관찰!']] },
+  ]},
+];
+const HR_SKIP = new Set(['cloud', 'sn', 'ns', 'bh']);
+for (const m of MASSES) { let s = 0; m.phases = m.phases.map(p => { const q = { ...p, start: s }; s += p.dur; return q; }); m.total = s; }
+
+// ───────────────────────── 렌더러 ─────────────────────────
+const canvas = $('c');
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' }); }
+catch (e) { $('err').style.display = 'flex'; $('err').textContent = 'WebGL2를 사용할 수 없는 환경입니다. 최신 크롬/엣지에서 열어 주세요.'; throw e; }
+let qHigh = false;
+const setPR = () => renderer.setPixelRatio(Math.min(devicePixelRatio, qHigh ? 2 : 1));
+setPR();
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.01, 60000);
+camera.position.set(0, 1.4, 6);
+const controls = new OrbitControls(camera, canvas);
+Object.assign(controls, { enableDamping: true, enableZoom: false, enablePan: false, autoRotate: true, autoRotateSpeed: 0.3, rotateSpeed: 0.6 });
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.6, 0.5, 0.95);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+// 3D 노이즈 텍스처 (모든 셰이더 공용)
+function makeNoise(S = 64) {
+  const n = S * S * S, M = S - 1; let a = new Float32Array(n), b = new Float32Array(n);
+  for (let i = 0; i < n; i++) a[i] = Math.random();
+  const id = (x, y, z) => ((z & M) * S + (y & M)) * S + (x & M);
+  for (let pass = 0; pass < 3; pass++) for (let ax = 0; ax < 3; ax++) {
+    for (let z = 0; z < S; z++) for (let y = 0; y < S; y++) for (let x = 0; x < S; x++)
+      b[id(x, y, z)] = (ax === 0 ? a[id(x - 1, y, z)] + a[id(x + 1, y, z)] : ax === 1 ? a[id(x, y - 1, z)] + a[id(x, y + 1, z)] : a[id(x, y, z - 1)] + a[id(x, y, z + 1)]) / 3 + a[id(x, y, z)] / 3;
+    [a, b] = [b, a];
+  }
+  let mean = 0, v = 0; for (let i = 0; i < n; i++) mean += a[i]; mean /= n;
+  for (let i = 0; i < n; i++) v += (a[i] - mean) ** 2; const sd = Math.sqrt(v / n);
+  const out = new Uint8Array(n);
+  for (let i = 0; i < n; i++) out[i] = clamp(Math.round((0.5 + (a[i] - mean) / sd * 0.18) * 255), 0, 255);
+  const t = new THREE.Data3DTexture(out, S, S, S);
+  t.format = THREE.RedFormat; t.minFilter = t.magFilter = THREE.LinearFilter;
+  t.wrapS = t.wrapT = t.wrapR = THREE.RepeatWrapping; t.unpackAlignment = 1; t.needsUpdate = true;
+  return t;
+}
+const NOISE = { value: makeNoise() };
+
+const GL = /* glsl */`
+uniform highp sampler3D uNoise;
+float N(vec3 p){ return (texture(uNoise,p).r-.5)*2.75; }
+float fbm3(vec3 p){ return N(p)*.55+N(p*2.03+.37)*.3+N(p*4.07+.71)*.15; }
+float hash12(vec2 p){ vec3 q=fract(vec3(p.xyx)*.1031); q+=dot(q,q.yzx+33.33); return fract((q.x+q.y)*q.z); }
+float hash13(vec3 p){ p=fract(p*.1031); p+=dot(p,p.zyx+31.32); return fract((p.x+p.y)*p.z); }
+vec3 hash33(vec3 p){ p=fract(p*vec3(.1031,.1030,.0973)); p+=dot(p,p.yxz+33.33); return fract((p.xxy+p.yxx)*p.zyx); }
+vec3 worley(vec3 p,float tm){ vec3 i=floor(p), f=fract(p); float d1=8., d2=8., id=0.;
+  for(int z=-1;z<=1;z++) for(int y=-1;y<=1;y++) for(int x=-1;x<=1;x++){
+    vec3 g=vec3(x,y,z), h=hash33(i+g), o=.5+.42*sin(tm+6.2831*h), r=g+o-f; float d=dot(r,r);
+    if(d<d1){ d2=d1; d1=d; id=h.x; } else if(d<d2) d2=d; }
+  return vec3(sqrt(d1),sqrt(d2),id); }
+vec3 bb(float t){ t=clamp(t,1000.,40000.)/100.;
+  float r = t<=66. ? 1. : clamp(1.292936*pow(t-60.,-.1332048),0.,1.);
+  float g = t<=66. ? clamp(.3900816*log(t)-.6318414,0.,1.) : clamp(1.1298909*pow(t-60.,-.0755148),0.,1.);
+  float b = t>=66. ? 1. : (t<=19. ? 0. : clamp(.5432068*log(t-10.)-1.1962541,0.,1.));
+  return pow(vec3(r,g,b),vec3(2.2)); }
+`;
+function bbJS(T) { // 흑체 색 (선형 RGB)
+  const t = clamp(T, 1000, 40000) / 100;
+  const r = t <= 66 ? 1 : clamp(1.292936 * Math.pow(t - 60, -.1332048), 0, 1);
+  const g = t <= 66 ? clamp(.3900816 * Math.log(t) - .6318414, 0, 1) : clamp(1.1298909 * Math.pow(t - 60, -.0755148), 0, 1);
+  const b = t >= 66 ? 1 : t <= 19 ? 0 : clamp(.5432068 * Math.log(t - 10) - 1.1962541, 0, 1);
+  return [r, g, b];
+}
+const cssBB = T => { const [r, g, b] = bbJS(T); return `rgb(${r * 255 | 0},${g * 255 | 0},${b * 255 | 0})`; };
+
+const world = new THREE.Group(); scene.add(world);
+
+// ── 배경 하늘 (은하수 + 별 + 블랙홀 중력렌즈) ──
+const sky = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, depthTest: false,
+  uniforms: { uNoise: NOISE, uBH: { value: 0 }, uTime: { value: 0 }, uDiskI: { value: 0 }, uDiskT: { value: 5200 } },
+  vertexShader: `varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
+  fragmentShader: GL + /* glsl */`
+uniform float uBH,uTime,uDiskI,uDiskT; varying vec3 vW;
+const float RIN=3., ROUT=12., RS=.6;
+vec3 starLayer(vec3 d,float sc,float dens,float rad,float bright){
+  vec3 p=d*sc, id=floor(p), f=fract(p);
+  if(hash13(id)>dens) return vec3(0.);
+  vec3 df=f-(hash33(id)*.7+.15); df-=d*dot(df,d);
+  float m=hash13(id+17.17), b=bright*(.04+2.5*pow(m,10.));
+  float t=mix(2800.,15000.,pow(hash13(id+3.7),1.7));
+  return bb(t)*b*exp(-dot(df,df)/(rad*rad));
+}
+vec3 sky(vec3 d){
+  vec3 gn=normalize(vec3(.35,1.,.15)); float lat=dot(d,gn);
+  float n1=fbm3(d*.9+3.), n2=fbm3(d*2.6+7.);
+  float band=exp(-lat*lat*11.)*clamp(.65+.7*n1,0.,2.);
+  float dust=smoothstep(-.05,.55,n2)*exp(-lat*lat*55.);
+  vec3 core=normalize(vec3(.8,.1,-.5)); core=normalize(core-gn*dot(core,gn));
+  float bul=pow(max(dot(d,core),0.),5.)*exp(-lat*lat*7.);
+  vec3 c=vec3(.85,.8,.78)*band*(.009+.008*n2)+vec3(1.,.78,.55)*bul*.03;
+  c*=1.-.85*dust;
+  c+=vec3(.9,.22,.32)*smoothstep(.3,.95,fbm3(d*1.7+11.))*exp(-lat*lat*4.)*.012;
+  c+=starLayer(d,85.,.22,.075,2.)+starLayer(d,210.,.2,.12,.8)+starLayer(d,460.,.16,.2,.45)*(.3+band*2.2);
+  return c;
+}
+vec4 disk(vec3 p,vec3 v){
+  float r=length(p.xz), x=(r-RIN)/(ROUT-RIN), ang=atan(p.z,p.x);
+  float rot=ang-uTime*3.*pow(r,-1.5)*2.2;
+  float st=fbm3(vec3(cos(rot)*1.3,sin(rot)*1.3,r*.65));
+  float n=N(vec3(cos(rot)*3.,sin(rot)*3.,r*1.7));
+  float dn=smoothstep(0.,.06,x)*smoothstep(1.,.3,x)*clamp(.55+.6*st+.25*n,0.,1.5);
+  float Tm=uDiskT*pow(r/RIN,-.75);
+  vec3 vel=normalize(vec3(-p.z,0.,p.x)); float beta=sqrt(.5/r), gam=1./sqrt(1.-beta*beta);
+  float D=1./(gam*(1.-beta*dot(vel,-v)));
+  float g=D*sqrt(max(1.-1./r,.02));
+  vec3 col=bb(Tm*g)*pow(g,3.)*uDiskI*dn*(1.+2.5*exp(-x*7.));
+  return vec4(col,clamp(dn*1.3,0.,1.)*min(uDiskI,1.));
+}
+vec3 trace(vec3 ro,vec3 rd){
+  vec3 x=ro,v=rd,h=cross(x,v); float h2=dot(h,h);
+  vec3 acc=vec3(0.); float al=0.;
+  for(int i=0;i<260;i++){
+    float r=length(x);
+    if(r<1.) return acc;
+    float dt=clamp(.075*r,.025,8.);
+    vec3 xo=x;
+    v+=-1.5*h2*x/pow(r,5.)*dt; x+=v*dt;
+    if(xo.y*x.y<0.){
+      vec3 hp=mix(xo,x,xo.y/(xo.y-x.y)); float hr=length(hp.xz);
+      if(hr>RIN&&hr<ROUT){ vec4 dc=disk(hp,normalize(v)); acc+=(1.-al)*dc.rgb; al+=(1.-al)*dc.a; if(al>.995) return acc; }
+    }
+    if(r>90.&&dot(x,v)>0.) break;
+  }
+  return acc+(1.-al)*sky(normalize(v));
+}
+void main(){
+  vec3 rd=normalize(vW-cameraPosition);
+  vec3 c = uBH>.5 ? trace(cameraPosition/RS,rd) : sky(rd);
+  gl_FragColor=vec4(c,1.);
+}`,
+}));
+sky.renderOrder = -100; sky.frustumCulled = false; scene.add(sky);
+
+// ── 별 표면 ──
+const starU = {
+  uNoise: NOISE, uTime: { value: 0 }, uT: { value: 5800 }, uCell: { value: 2.5 }, uContrast: { value: 1 }, uSpots: { value: 0 },
+  uBright: { value: 1.1 }, uDisp: { value: 0 }, uFlow: { value: 1 }, uSeed: { value: 0 }, uFlare: { value: 0 },
+  uFlareDir: { value: new THREE.Vector3(0, 0, 1) }, uDim: { value: 0 }, uDimDir: { value: new THREE.Vector3(0, -.6, .8).normalize() },
+  uHot: { value: 0 }, uCut: { value: 0 },
+};
+const star = new THREE.Mesh(new THREE.SphereGeometry(1, 160, 110), new THREE.ShaderMaterial({
+  uniforms: starU,
+  vertexShader: GL + /* glsl */`
+uniform float uTime,uDisp,uCell,uFlow,uSeed; varying vec3 vObj,vNw,vWorld;
+void main(){
+  vec3 p=position;
+  if(uDisp>0.) p*=1.+fbm3(p*uCell*.5+vec3(uSeed)+uTime*uFlow*.012)*uDisp;
+  vObj=position; vec4 w=modelMatrix*vec4(p,1.); vWorld=w.xyz; vNw=normalize(mat3(modelMatrix)*normal);
+  gl_Position=projectionMatrix*viewMatrix*w;
+}`,
+  fragmentShader: GL + /* glsl */`
+uniform float uT,uTime,uCell,uContrast,uSpots,uBright,uFlow,uSeed,uFlare,uDim,uHot,uCut;
+uniform vec3 uFlareDir,uDimDir; varying vec3 vObj,vNw,vWorld;
+void main(){
+  vec3 p=normalize(vObj); float t=uTime*uFlow;
+  float k=max(uCell*8.,1.4);
+  vec3 q=p*k+vec3(uSeed);
+  vec3 wp=q+vec3(N(p*.9+t*.004),N(p*.9+5.2-t*.003),N(p*.9+9.1+t*.005))*k*.09;
+  vec3 c1=worley(wp,t*.35);
+  float lanes=smoothstep(0.,.16+.1/k,c1.y-c1.x);
+  float cen=1.-.42*smoothstep(.1,.95,c1.x);
+  vec3 c2=worley(wp*3.1+7.,t*.6);
+  float sub=mix(1.,.72+.3*smoothstep(0.,.2,c2.y-c2.x),smoothstep(6.,2.,k));
+  float sup=fbm3(p*1.3+vec3(uSeed*1.3)+t*.004);
+  float g=mix(1.,(.42+.62*lanes)*cen*sub*(.78+.38*c1.z)*(.85+.3*sup),uContrast);
+  float sn=fbm3(p*1.1+vec3(uSeed+3.)+t*.0015);
+  float spot=uSpots*smoothstep(.5,.72,sn), pen=uSpots*smoothstep(.36,.5,sn);
+  float mu=clamp(dot(normalize(vNw),normalize(cameraPosition-vWorld)),0.,1.);
+  float limb=.38+.62*pow(mu,.5);
+  float dim=uDim*smoothstep(.45,.95,dot(p,uDimDir))*(.7+.3*N(p*3.));
+  float Tl=uT*(.9+.12*g)*(1.-.3*spot-.08*pen)*(.8+.2*mu);
+  vec3 col=bb(Tl*.86)*g*limb*(1.-.88*spot)*(1.-.3*pen)*(1.-.8*dim);
+  float fd=acos(clamp(dot(p,uFlareDir),-1.,1.));
+  col+=bb(9000.)*uFlare*exp(-fd*fd*160.)*5.;
+  col=mix(vec3(dot(col,vec3(.3,.59,.11))),col,1.45);
+  col*=uBright;
+  col=mix(col,bb(uT)*(1.6+.4*g),uHot);
+  // 단면 보기: 가운데는 투명, 가장자리로 갈수록 불투명 (유리구슬처럼 속이 비쳐 보임)
+  float a=uCut>.5?mix(.12,.97,pow(1.-mu,2.2)):1.;
+  gl_FragColor=vec4(col,a);
+}`,
+}));
+world.add(star);
+
+// 별 주변 광륜(코로나)
+const glow = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  uniforms: { uNoise: NOISE, uCol: { value: new THREE.Color() }, uI: { value: 1 }, uK: { value: 6 }, uTime: { value: 0 }, uRays: { value: .5 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+  fragmentShader: GL + `uniform vec3 uCol; uniform float uI,uK,uTime,uRays; varying vec2 vUv;
+void main(){ vec2 c=vUv*2.-1.; float r=length(c)*uK; if(r<1.) discard;
+  float g=(pow(1./r,3.6)+.6*exp(-(r-1.)*9.))*smoothstep(uK,uK*.5,r);
+  float a=atan(c.y,c.x);
+  g*=mix(1.,.7+.6*N(vec3(cos(a)*1.8,sin(a)*1.8,r*.12-uTime*.03)),uRays);
+  gl_FragColor=vec4(uCol*g*uI,1.); }`,
+}));
+world.add(glow);
+
+// 단면(내부 구조) 원판
+const cutU = { uNoise: NOISE, uTime: { value: 0 }, uN: { value: 1 }, uL: { value: Array.from({ length: 8 }, () => new THREE.Vector4()) }, uC: { value: new Array(8).fill(0) } };
+const cutDisk = new THREE.Mesh(new THREE.CircleGeometry(1, 160), new THREE.ShaderMaterial({
+  uniforms: cutU, side: THREE.DoubleSide,
+  vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+  fragmentShader: GL + `uniform vec4 uL[8]; uniform float uC[8]; uniform int uN; uniform float uTime; varying vec2 vUv;
+void main(){ vec2 c=vUv*2.-1.; float r=length(c); if(r>1.) discard;
+  vec3 col=vec3(0.); float conv=0., r0=0., r1=1.;
+  for(int i=0;i<8;i++){ if(i>=uN) break; if(r<=uL[i].w){ col=uL[i].rgb; conv=uC[i]; r1=uL[i].w; break; } r0=uL[i].w; }
+  float pat = conv>.5 ? .62+.7*smoothstep(-.35,.55,fbm3(vec3(c*1.6,uTime*.03))) : .93+.12*N(vec3(c*2.,uTime*.02));
+  float edge=smoothstep(0.,.012,r1-r)*(r0>0.?smoothstep(0.,.012,r-r0):1.);
+  col*=pat*(.55+.45*edge)*(1.35-.4*r)*(.72+.38*sqrt(max(1.-r*r,0.)));
+  gl_FragColor=vec4(col,1.); }`,
+}));
+cutDisk.visible = false; world.add(cutDisk);
+
+// ── 볼류메트릭 성운 (레이마칭) ──
+const VDEF = { tubes: 0, tubeF: 1, tubeW: .3, colT1: [1, .8, .4], colT2: [1, .25, .12], knots: 0, spokes: 0, halo: 0, torus: 0, filP: 4, sat: 1.2, warp: 0, pole: 0, con: 1, edge: 0, shellR: 0, thick: .5, bip: 0, waist: 1, nScale: .8, nAmp: 1, fil: 0, dens: 1, abs: 0, emis: 1, light: 0, swirl: 0, flat: 0, fade: 1, inner: 0, hole: 0, rings: 0, flow: 1, seed: 0, colA: [1, 1, 1], colM: [1, 1, 1], colB: [1, 1, 1], colD: [1, 1, 1], colC: [1, 1, 1] };
+const uName = k => 'u' + k[0].toUpperCase() + k.slice(1);
+const VOL_FS = GL + /* glsl */`
+uniform float uTubes,uTubeF,uTubeW,uKnots,uSpokes,uHalo,uTorus,uFilP,uSat,uWarp,uPole,uCon,uEdge,uShellR,uThick,uBip,uWaist,uNScale,uNAmp,uFil,uDens,uAbs,uEmis,uLight,uSwirl,uFlat,uFade,uInner,uHole,uRings,uFlow,uSeed,uTime,uStarR;
+uniform vec3 uColA,uColM,uColB,uColD,uColC,uColT1,uColT2,uCam; varying vec3 vObj;
+float dens(vec3 p,out float m,out float ex,out float ff,out float tc){
+  vec3 q=p; float rxz=length(q.xz);
+  float a=uSwirl*(1.-rxz)+uTime*uFlow*.06/(.25+rxz);
+  float cs=cos(a),sn=sin(a); q.xz=mat2(cs,-sn,sn,cs)*q.xz;
+  q.y/=max(1.-uFlat,.06);
+  float r=length(q); vec3 dir=q/max(r,1e-4);
+  float R0=uShellR*mix(1.,uWaist+(1.-uWaist)*pow(abs(dir.y),1.4),uBip);
+  m=0.; ex=0.; ff=0.; tc=0.;
+  if(uTubes<.01&&uInner<.01&&uHalo<.01&&uTorus<.01&&abs(r-R0)>uThick*3.+.3*uNAmp+uWarp) return 0.;
+  vec3 np=q*uNScale+vec3(uSeed,uSeed*.7,uTime*.006*uFlow);
+  float n=fbm3(np)*1.5;
+  float rr=r+n*.12*uNAmp+(uWarp>0.?fbm3(q*.3+uSeed*.5)*uWarp:0.);
+  float e=(rr-R0)/uThick, sh=exp(-e*e);
+  float base=pow(clamp(.55+.8*n,0.,2.),uCon);
+  float fl=pow(max(1.-abs(N(np*2.3+5.1)),0.),uFilP);
+  float shell=sh*base*mix(1.,3.2*fl,uFil);
+  if(uSpokes>0.) shell*=mix(1.,smoothstep(-.4,.6,N(dir*4.5+uSeed)),uSpokes);
+  float inn=uInner*smoothstep(R0,R0*.15,rr)*clamp(.45+.85*n,0.,2.);
+  float hw=R0*.3+.01, he=(rr-R0*1.5)/hw;
+  float halo=uHalo*exp(-he*he)*base*(.4+fl);
+  float tb=0.;
+  if(uTubes>0.){
+    // 실(필라멘트) = 두 노이즈 0-등위면의 교선 → 3D 공간에 엉킨 가는 관
+    vec3 tp=q*uTubeF+vec3(uSeed*1.3,2.7,uTime*.002);
+    float a1=N(tp), a2=N(tp*1.07+vec3(13.1,7.3,2.9));
+    float b1=N(tp*2.13+4.4), b2=N(tp*2.2+vec3(8.8,1.9,6.1));
+    float w2=uTubeW*uTubeW;
+    float tube=exp(-(a1*a1+a2*a2)/w2)+.3*exp(-(b1*b1+b2*b2)/(w2*.6));
+    float env=smoothstep(R0*1.08,R0*.55,rr)*(.3+.7*smoothstep(R0*.15,R0*.9,rr));
+    tb=uTubes*env*tube*(.55+.6*n);
+  }
+  float d=shell+inn+halo+tb;
+  ff=tb/max(d,1e-4); tc=smoothstep(R0*.3,R0*1.05,rr);
+  d*=mix(1.,.3+.7*smoothstep(-.2,.7,sin(r*48.)),uRings)*(1.-uPole*smoothstep(.5,.85,abs(dir.y)));
+  float bound=smoothstep(1.,.82,length(p))*smoothstep(uHole,uHole*2.+.001,r);
+  d*=bound;
+  m=smoothstep(max(R0-1.6*uThick,0.),R0+1.6*uThick+.001,rr);
+  if(uKnots>0.) ex+=uKnots*sh*smoothstep(.45,.8,N(np*3.1+11.))*smoothstep(.25,.65,m);
+  if(uTorus>0.){ float rx=length(p.xz); ex+=uTorus*exp(-p.y*p.y/.006)*smoothstep(.45,.1,rx)*smoothstep(.02,.07,rx)*(.6+.6*n); }
+  ex*=bound;
+  return max(d,0.)*uDens;
+}
+vec3 pal(float m){ return m<.333?mix(uColA,uColM,m*3.):m<.667?mix(uColM,uColB,m*3.-1.):mix(uColB,uColD,m*3.-2.); }
+void main(){
+  vec3 ro=uCam, rd=normalize(vObj-uCam);
+  float b=dot(ro,rd), c=dot(ro,ro)-1., h=b*b-c; if(h<0.) discard; h=sqrt(h);
+  float t0=max(-b-h,0.), t1=-b+h;
+  if(uStarR>0.){ float c2=dot(ro,ro)-uStarR*uStarR, h2=b*b-c2; if(h2>0.){ float ts=-b-sqrt(h2); if(ts>0.) t1=min(t1,ts); } }
+  if(t1<=t0) discard;
+  const int ST=72; float dt=(t1-t0)/float(ST);
+  float t=t0+dt*fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))));
+  vec3 acc=vec3(0.); float T=1.;
+  for(int i=0;i<ST;i++){
+    vec3 p=ro+rd*t; float m,ex,ff,tc; float d=dens(p,m,ex,ff,tc);
+    if(d>.002||ex>.01){
+      vec3 em=mix(pal(m),(tc<.6?mix(uColT1,uColT2,tc/.6):mix(uColT2,uColD,(tc-.6)/.4)),ff)*uEmis + uColC*uLight/(.03+5.*dot(p,p));
+      acc+=T*em*d*exp(-d*uEdge)*dt; T*=exp(-(uAbs*d+ex)*dt);
+      if(T<.02) break;
+    }
+    t+=dt;
+  }
+  acc=max(mix(vec3(dot(acc,vec3(.3,.59,.11))),acc,uSat),0.);
+  gl_FragColor=vec4(acc,1.-T)*uFade;
+}`;
+function makeVol(order) {
+  const u = { uNoise: NOISE, uTime: { value: 0 }, uStarR: { value: 0 }, uCam: { value: new THREE.Vector3() } };
+  for (const k in VDEF) u[uName(k)] = { value: Array.isArray(VDEF[k]) ? new THREE.Vector3() : 0 };
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1.06, 48, 32), new THREE.ShaderMaterial({
+    uniforms: u, side: THREE.BackSide, transparent: true, depthWrite: false, depthTest: false,
+    blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
+    vertexShader: `varying vec3 vObj; void main(){ vObj=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader: VOL_FS,
+  }));
+  m.renderOrder = order; m.visible = false; m.frustumCulled = false; world.add(m); return m;
+}
+const vols = { cloud: makeVol(10), disk: makeVol(11), shell: makeVol(12) };
+const OV = {};
+function vol(m, o) {
+  o = { ...o, ...OV[m === vols.cloud ? 'cloud' : m === vols.disk ? 'disk' : 'shell'] };
+  o.colD ??= o.colB ?? VDEF.colB;
+  m.visible = true; const u = m.material.uniforms;
+  m.scale.set(o.scale, o.scale * (o.sy || 1), o.scale);
+  m.rotation.set(...(o.rot || [0, 0, 0]));
+  for (const k in VDEF) { const v = o[k] ?? VDEF[k]; if (Array.isArray(v)) u[uName(k)].value.set(...v); else u[uName(k)].value = v; }
+}
+
+// ── 입자 (초신성 파편 / 항성풍 / 제트) ──
+const PART_VS = GL + /* glsl */`
+attribute vec3 aDir; attribute vec4 aRnd;
+uniform float uTime,uMode,uR0,uR1,uExpand,uSize,uFade,uHeat,uJetLen,uJetW,uSpeed,uPix;
+uniform vec3 uColor,uColor2; varying vec3 vCol; varying float vA;
+void main(){
+  vec3 pos; float a=1.;
+  if(uMode<.5){
+    pos=aDir*(uR0+uExpand*aRnd.y);
+    float heat=clamp(uHeat*(1.15-aRnd.x*.35),0.,1.);
+    vCol=bb(mix(1500.,16000.,heat*heat))*(.35+2.4*heat)*mix(vec3(1.),uColor,1.-heat);
+    a=uFade;
+  } else if(uMode<1.5){
+    float f=fract(uTime*uSpeed*(.5+aRnd.y)+aRnd.x);
+    pos=aDir*mix(uR0,uR1,f); a=sin(3.14159*f)*uFade; vCol=uColor;
+  } else {
+    float f=fract(uTime*uSpeed*(.6+.8*aRnd.y)+aRnd.x), s=aDir.y>0.?1.:-1.;
+    vec2 j=normalize(aDir.xz+1e-4)*aRnd.w*uJetW*(.12+f);
+    pos=vec3(j.x,s*(uR0+f*uJetLen),j.y);
+    float knot=.25+.75*pow(.5+.5*sin(f*38.+aRnd.x*2.),6.);
+    a=(1.-f)*smoothstep(0.,.04,f)*uFade*knot; vCol=mix(uColor,uColor2,smoothstep(.1,.7,f));
+  }
+  vA=a;
+  vec4 mv=modelViewMatrix*vec4(pos,1.);
+  gl_PointSize=clamp(uSize*(.35+aRnd.z)*uPix/(-mv.z),0.,48.);
+  gl_Position=projectionMatrix*mv;
+}`;
+function makeParts(n, dirFn) {
+  const g = new THREE.BufferGeometry(), d = new Float32Array(n * 3), r = new Float32Array(n * 4);
+  for (let i = 0; i < n; i++) { const v = dirFn(i); d.set([v.x, v.y, v.z], i * 3); r.set([Math.random(), Math.random(), Math.random(), Math.random()], i * 4); }
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  g.setAttribute('aDir', new THREE.BufferAttribute(d, 3)); g.setAttribute('aRnd', new THREE.BufferAttribute(r, 4));
+  const u = {}; for (const k of ['uTime', 'uMode', 'uR0', 'uR1', 'uExpand', 'uSize', 'uFade', 'uHeat', 'uJetLen', 'uJetW', 'uSpeed', 'uPix']) u[k] = { value: 0 };
+  u.uColor = { value: new THREE.Color() }; u.uColor2 = { value: new THREE.Color() }; u.uNoise = NOISE;
+  const p = new THREE.Points(g, new THREE.ShaderMaterial({
+    uniforms: u, vertexShader: PART_VS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    fragmentShader: `varying vec3 vCol; varying float vA; void main(){ vec2 c=gl_PointCoord-.5; float a=exp(-dot(c,c)*16.)*vA; if(a<.003) discard; gl_FragColor=vec4(vCol*a,1.); }`,
+  }));
+  p.frustumCulled = false; p.visible = false; p.renderOrder = 20; world.add(p); return p;
+}
+const rndDir = () => new THREE.Vector3().randomDirection();
+const clumps = Array.from({ length: 70 }, rndDir);
+const parts = {
+  debris: makeParts(9000, () => clumps[Math.random() * 70 | 0].clone().add(rndDir().multiplyScalar(Math.random() * .3)).normalize()),
+  wind: makeParts(2500, rndDir),
+  jets: makeParts(3500, rndDir),
+};
+function part(p, o) { p.visible = true; const u = p.material.uniforms; for (const k in o) { if (u[k].value?.isColor) u[k].value.setRGB(...o[k]); else u[k].value = o[k]; } }
+
+// ── 펄서 (빔 + 자기력선) ──
+const pulsar = new THREE.Group(), magG = new THREE.Group(); pulsar.add(magG); world.add(pulsar); pulsar.visible = false;
+const beamGeo = new THREE.ConeGeometry(1, 1, 48, 1, true); beamGeo.rotateX(Math.PI); beamGeo.translate(0, .5, 0);
+const beamMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+  uniforms: { uI: { value: 1 }, uCol: { value: new THREE.Color(.55, .75, 1) } },
+  vertexShader: `varying float vAl; varying vec3 vN,vV; void main(){ vAl=position.y; vec4 mv=modelViewMatrix*vec4(position,1.); vV=-mv.xyz; vN=normalMatrix*normal; gl_Position=projectionMatrix*mv; }`,
+  fragmentShader: `uniform float uI; uniform vec3 uCol; varying float vAl; varying vec3 vN,vV;
+void main(){ float f=abs(dot(normalize(vN),normalize(vV))); float a=pow(f,2.2)*pow(1.-vAl,1.4)*(.35+.65*exp(-vAl*7.)); gl_FragColor=vec4(uCol*a*uI,1.); }`,
+});
+const beams = [0, 1].map(i => { const b = new THREE.Mesh(beamGeo, beamMat); if (i) b.rotation.x = Math.PI; magG.add(b); return b; });
+const fieldLines = new THREE.Group(); magG.add(fieldLines);
+{
+  const mat = new THREE.LineBasicMaterial({ color: 0x5f9cff, transparent: true, opacity: .4, blending: THREE.AdditiveBlending, depthWrite: false });
+  for (const L of [.45, .7, 1.05, 1.6, 2.4]) for (let k = 0; k < 8; k++) {
+    const ph = k / 8 * Math.PI * 2, pts = [], t0 = Math.asin(Math.sqrt(.12 / L));
+    for (let i = 0; i <= 64; i++) { const th = t0 + (Math.PI - 2 * t0) * i / 64, r = L * Math.sin(th) ** 2; pts.push(new THREE.Vector3(r * Math.sin(th) * Math.cos(ph), r * Math.cos(th), r * Math.sin(th) * Math.sin(ph))); }
+    fieldLines.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
+  }
+}
+
+// ───────────────────────── 단계별 연출 ─────────────────────────
+const F = {};  // 프레임 상태
+let time = 0;
+function showStar(o) {
+  star.visible = glow.visible = true;
+  star.scale.setScalar(o.vis);
+  const u = starU;
+  u.uT.value = o.T; u.uCell.value = o.cell ?? 2.5; u.uContrast.value = o.contrast ?? 1; u.uSpots.value = o.spots ?? 0;
+  u.uDisp.value = o.disp ?? 0; u.uFlow.value = o.flow ?? 1; u.uBright.value = o.bright ?? .95; u.uDim.value = o.dim ?? 0; u.uHot.value = o.hot ?? 0;
+  glow.scale.setScalar(o.vis * (o.gk ?? 6)); glow.material.uniforms.uK.value = o.gk ?? 6;
+  glow.material.uniforms.uI.value = (o.gi ?? .9) * .45; glow.material.uniforms.uRays.value = o.rays ?? .15;
+  glow.material.uniforms.uCol.value.setRGB(...bbJS(o.T * .86));
+  F.starVis = o.vis; F.T = o.T; F.R = o.R;
+}
+function RT(ph, p) {
+  const h = ph.rEase === 'hold' ? Math.min(p / .8, 1) : p;   // hold: 단계의 80%에서 팽창 완료
+  const tr = ph.rEase === 'out' ? easeOut(p) : h, tt = ph.tEase === 'out' ? easeOut(h) : h;
+  return { R: geo(ph.R[0], ph.R[1], tr), T: geo(ph.T[0], ph.T[1], tt) };
+}
+const prevPh = c => c.m.phases[c.i - 1];
+// 팽창 단계 카메라: 별이 커지는 동안 카메라가 일부만 물러나서, 화면 속 별이 처음보다 g배(거성 1.9 · 초거성 2.1)까지 계속 커져 보이게 한다
+function growFrame(ph, v, g = ph.g ?? 1.9) {
+  const v0 = vis(ph.R[0]), span = Math.log(vis(ph.R[1]) / v0);
+  const k = span > .01 ? (1 - Math.log(g) / span) / .92 : 1;
+  return v0 * 1.05 * Math.pow(Math.max(v / v0, 1), k);
+}
+// 별 전체(표면 요철 여유 fitK 포함)가 화면 세로의 약 92%를 채우는 카메라 거리
+const fitFrame = ph => Math.pow(vis(ph.R[1]) * ph.fitK / Math.sin(camera.fov * Math.PI / 360 * .92) / 4.2, 1 / .92);
+const growEnd = ph => ph.fitK ? fitFrame(ph) : growFrame(ph, vis(ph.R[1]));
+// 팽창 중엔 growFrame, 다 커진 뒤(80%~)엔 살짝 물러나 꽉 차게
+const holdFrame = (ph, v, p) => lerp(growFrame(ph, v), fitFrame(ph), easeInOut(sstep(.8, .95, p)));
+
+function cloudCfg(p, extra = {}) {
+  return { scale: lerp(30, 15, easeInOut(p)), shellR: 0, thick: .4, warp: 1.1, con: 3, nScale: .9, nAmp: 3.5, fil: .5, dens: lerp(2.6, 3.4, p), abs: 12, emis: 4.5, edge: 1.3,
+    colA: [.5, .12, .14], colM: [.9, .22, .28], colB: [1, .3, .38], light: sstep(.7, 1, p) * 1.3, colC: [1, .5, .25], swirl: p * 2.5, flat: p * .35, seed: 1.7, ...extra };
+}
+function pnCfg(M, ph, p) {
+  const bip = !!ph.bip, pv = vis(ph.R[0]);
+  const s = pv * lerp(2.3, bip ? 3.6 : 3.3, easeOut(p)), lit = sstep(.12, .45, p);
+  const common = { scale: s, light: (1 - sstep(.1, .45, p)) * 1.4, colC: [1, .45, .22], seed: 4.2, con: 2, nScale: 2.1, dens: 3.2, sat: 1.45, emis: .6 * lit };
+  return bip
+    // NGC 6302: 흰·푸른 중심, 녹슨 주황 날개, 붉은 가장자리, 허리의 먼지 띠
+    ? { ...common, rot: [.35, 0, .55], shellR: .62, thick: lerp(.24, .18, p), bip: 1, waist: .1, con: 3, nAmp: 1.6, warp: .25, fil: .85, filP: 3, spokes: .6, inner: .04, halo: .12 * lit, knots: 6, torus: 60, abs: lerp(2, .4, p), emis: .5 * lit,
+        colA: [.55, .75, 1], colM: [1, .8, .5], colB: [.9, .38, .15], colD: [.75, .08, .08] }
+    // M57: 푸른 중심 → 청록 → 노랑·주황 → 붉은 외곽 + 어두운 먼지 매듭
+    : { ...common, rot: [1.2, 0, .25], shellR: .58, thick: lerp(.24, .1, p), bip: .35, waist: .7, pole: .85, nAmp: .8, fil: .5, filP: 6, spokes: .5, inner: .12, halo: .1 * lit, knots: 18, abs: lerp(2, .15, p),
+        colA: [.08, .3, 1], colM: [.15, .95, .6], colB: [1, .62, .12], colD: [1, .12, .1] };
+}
+const CRAB_COL = { colA: [.15, .72, 1], colM: [.2, .75, 1], colB: [1, .5, .15], colD: [1.1, .16, .06], colT1: [1.1, 1.5, .75], colT2: [1.4, .65, .15] };
+const snBase = c => { const pv = prevPh(c); return Math.max(vis(pv.R[1]), 9); };
+function crabCfg(base, p, fade) {
+  // 게 성운(HST 모자이크): 밝은 청록 싱크로트론 내부 + 안쪽은 황록·흰색, 바깥은 주황 필라멘트 그물, 붉은 가장자리
+  return { scale: base * 4.3 * (1 + .05 * p), sy: 1.35, rot: [.2, .4, .1], seed: 9.1, fade,
+    shellR: .78, thick: .01, nScale: 1.6, nAmp: 1.4, warp: .35, con: 2, inner: .32, dens: 4, abs: .2, emis: .7, sat: 1.6,
+    tubes: 1.8, tubeF: .55, tubeW: .15, ...CRAB_COL };
+}
+
+const KIND = {
+  cloud(c, p) { vol(vols.cloud, cloudCfg(p)); F.frame = lerp(30, 15, easeInOut(p)) * .78; },
+  proto(c, p) {
+    const { R, T } = RT(c.ph, p), v = vis(R), big = c.M >= 15, k = big ? 1.5 : 1;
+    showStar({ vis: v * sstep(0, .2, p), R, T, cell: 1.6, contrast: 1, spots: .9, flow: 1.6, gi: 1.1 });
+    vol(vols.cloud, cloudCfg(1, { scale: lerp(15, 10, p), fade: lerp(1, .12, sstep(0, .8, p)), light: 1.3 + p * 2 }));
+    vol(vols.disk, { scale: Math.max(9 * k, v * 3.2), flat: .93, thick: .55, nScale: .9, nAmp: 1, fil: .2, dens: 6, abs: 18, emis: .05, colA: [.6, .3, .2], colM: [.6, .3, .2], colB: [.6, .3, .2],
+      light: 2.6, colC: [1, .72, .48], swirl: 3, flow: 2.5, hole: .05, rings: sstep(.45, .8, p) * (big ? .3 : 1), fade: sstep(0, .3, p), seed: 2.3 });
+    part(parts.jets, { uMode: 2, uR0: v * .8, uJetLen: Math.max(12 * k, v * 4), uJetW: .5 * k, uSpeed: .12, uSize: .3 * k, uFade: sstep(.15, .35, p) * .5, uColor: [.55, .75, 1], uColor2: [1, .3, .25] });
+    F.frame = Math.max(6.5 * k, v * 2.2);
+  },
+  ms(c, p) {
+    const { R, T } = RT(c.ph, p), v = vis(R), M = c.M;
+    showStar({ vis: v, R, T, cell: M < .5 ? 3 : M < 2 ? 5 : 1.3, contrast: M < 2 ? .55 : .3, spots: M < .5 ? .5 : M < 2 ? .45 : 0, flow: 1, gi: M > 10 ? 1.3 : .9 });
+    if (M < .5) { const ft = (time * .22) % 1, k = Math.floor(time * .22); starU.uFlare.value = ft < .15 ? Math.sin(ft / .15 * Math.PI) : 0; starU.uFlareDir.value.set(Math.sin(k * 7.1), Math.sin(k * 3.7) * .6, Math.cos(k * 7.1)).normalize(); }
+    if (M > 10) part(parts.wind, { uMode: 1, uR0: v, uR1: v * 3.2, uSpeed: .25, uSize: .018 * v, uFade: .3, uColor: [.45, .65, 1] });
+    F.frame = v * 1.05;
+  },
+  bd(c, p) { const { R, T } = RT(c.ph, p); showStar({ vis: vis(R), R, T, cell: 1.7, contrast: lerp(1, .5, p), spots: .2 * (1 - p) }); F.frame = vis(R) * 1.05; },
+  giant(c, p) {
+    const { R, T } = RT(c.ph, p), v = vis(R);
+    showStar({ vis: v, R, T, cell: lerp(2.4, .32, sstep(0, .9, p)), contrast: 1, disp: .035 * p, flow: .6, gi: .7 });
+    part(parts.wind, { uMode: 1, uR0: v, uR1: v * 2.3, uSpeed: .06, uSize: .025 * v, uFade: .18 * p, uColor: [1, .5, .28] });
+    F.frame = holdFrame(c.ph, v, p);
+  },
+  hb(c, p) { const { R, T } = RT(c.ph, p); showStar({ vis: vis(R), R, T, cell: lerp(.32, 1.1, sstep(0, .5, p)), contrast: .9, flow: .8, disp: .03 * (1 - p) }); F.frame = lerp(growEnd(prevPh(c)), vis(c.ph.R[1]) * 1.1, easeInOut(sstep(.25, .85, p))); },
+  ceph(c, p) {
+    const { R, T } = RT(c.ph, p), s = Math.sin(time * 2.4);
+    const Rp = R * (1 + .18 * s), Tp = T * (1 - .1 * Math.sin(time * 2.4 - .7));
+    showStar({ vis: vis(Rp), R: Rp, T: Tp, bright: .95 * (1 + .3 * Math.sin(time * 2.4 - .7)), cell: .9, contrast: .85, flow: .8 });
+    F.frame = vis(R) * 1.15;
+  },
+  agb(c, p) {
+    // 미라형 맥동: 반지름 ±15%, 작아질 때 뜨겁고 밝아짐 (실제 미라는 밝기가 수백 배 변함)
+    const ph = Math.sin(time * 1.6), pul = 1 + .15 * ph + .04 * Math.sin(time * 3.3 + 1);
+    const { R, T } = RT(c.ph, p), v = vis(R);
+    showStar({ vis: v * pul, R: R * pul, T: T * (1 - .1 * ph), bright: .95 * (1 - .28 * ph), cell: .24, contrast: 1, disp: .07, flow: .5, gi: .6 * (1 - .4 * ph) });
+    vol(vols.shell, { scale: v * 2.3, shellR: .7, thick: .22, nScale: 1.1, nAmp: 1.5, fil: .2, dens: 1.5, abs: 3, emis: 0, light: 1.6, colC: [1, .45, .22], fade: sstep(.1, .6, p), seed: 4.2 });
+    part(parts.wind, { uMode: 1, uR0: v, uR1: v * 2.4, uSpeed: .05, uSize: .028 * v, uFade: .25, uColor: [1, .42, .22] });
+    F.frame = growFrame(c.ph, v) * 1.12;
+  },
+  pn(c, p) {
+    const { R, T } = RT(c.ph, p), v = vis(R);
+    showStar({ vis: v, R, T, cell: lerp(.24, 4, sstep(0, .3, p)), contrast: 1 - sstep(0, .35, p), disp: .07 * (1 - sstep(0, .2, p)), flow: .5, gk: lerp(6, 16, sstep(0, .4, p)), gi: lerp(.6, 1.8, sstep(0, .4, p)) });
+    const cfg = pnCfg(c.M, c.ph, p); vol(vols.shell, cfg);
+    F.frame = lerp(growEnd(prevPh(c)) * 1.12, cfg.scale * (c.ph.bip ? .95 : .8), sstep(0, .6, p));
+  },
+  wd(c, p) {
+    const { R, T } = RT(c.ph, p), v = vis(R);
+    showStar({ vis: v, R, T, cell: 4, contrast: .06, flow: .2, bright: 1.3, gk: 16, gi: lerp(1.8, .9, p), rays: .2 });
+    const pv = prevPh(c);
+    if (pv.kind === 'pn') {
+      const cfg = pnCfg(c.M, pv, 1); cfg.scale *= 1 + .25 * p; cfg.fade = Math.pow(1 - p, 1.5); vol(vols.shell, cfg);
+      F.frame = lerp(cfg.scale * .75, v * 1.4, easeInOut(sstep(0, .65, p)));
+    } else F.frame = lerp(vis(c.ph.R[0]) * 1.05, v * 1.4, easeInOut(sstep(0, .5, p)));
+  },
+  rsg(c, p) {
+    const { R, T } = RT(c.ph, p), v0 = vis(R), shud = (1 + .05 * Math.sin(time * 1.1) * sstep(.3, .6, p)) * (1 + .025 * Math.sin(time * 9) * sstep(.85, 1, p)), v = v0 * shud;
+    showStar({ vis: v, R, T, cell: lerp(1.3, .09, sstep(0, .6, p)), contrast: sstep(0, .25, p) * .9 + .1, disp: lerp(.0, .09, p), flow: .45, gi: .65,
+      dim: sstep(.52, .58, p) * (1 - sstep(.68, .74, p)) });
+    part(parts.wind, { uMode: 1, uR0: v, uR1: v * 2, uSpeed: .05, uSize: .022 * v, uFade: .2 * sstep(.2, .6, p), uColor: [1, .48, .3] });
+    vol(vols.shell, { scale: v0 * 2.2, shellR: .72, thick: .2, nScale: 1.2, nAmp: 1.6, fil: .3, dens: 1, abs: 2.5, emis: 0, light: 1.4, colC: [1, .42, .22], fade: sstep(.4, .9, p) * .8, seed: 6.6 });
+    F.frame = holdFrame(c.ph, v0, p);
+    F.shake = sstep(.9, 1, p) * v0 * .004;
+  },
+  sn(c, p) {
+    const pv = prevPh(c), v0 = vis(pv.R[1]), base = snBase(c), grb = !!c.ph.grb;
+    const q = sstep(.08, 1, p), env = sstep(.07, .1, p) * Math.exp(-Math.max(p - .1, 0) * 7);
+    if (p < .26) {
+      const hot = sstep(.07, .1, p), sz = (1 - .04 * sstep(0, .07, p)) * lerp(1, 1.5, sstep(.08, .25, p));
+      showStar({ vis: v0 * sz, R: pv.R[1], T: lerp(pv.T[1], 30000, hot), cell: pv.kind === 'rsg' ? .09 : 3, contrast: 1 - hot, disp: .09 * (1 - hot), flow: .45, hot,
+        bright: 1.1 * (1 - sstep(.15, .26, p)) + .01, gi: .6 + 3 * hot * (1 - sstep(.12, .26, p)) });
+    }
+    const h = 1 - sstep(0, .22, q);
+    const mix3 = (a, b) => a.map((x, i) => lerp(x, b[i], h));
+    // 팽창 초기: 흰·청백색 화구 → 식으며 카시오페이아 A·베일 성운 같은 청록(OIII)·붉은(Hα) 필라멘트
+    vol(vols.shell, { scale: base * lerp(1, 4.2, easeOut(q)), shellR: .72, thick: lerp(.3, .075, q), nScale: 1.8, nAmp: lerp(.3, .55, q), warp: .12, con: lerp(2.5, 3, q), fil: lerp(.3, .95, sstep(0, .5, q)), filP: lerp(4, 6, q),
+      spokes: lerp(.7, .35, q), knots: 6 * q, inner: lerp(.25, .04, sstep(0, .5, q)), dens: 5, abs: lerp(0, .3, q), emis: lerp(.5, .45, sstep(0, .5, q)), sat: lerp(1, 1.45, q),
+      colA: mix3([.25, .55, 1], [1.2, 1.25, 1.35]), colM: mix3([.2, 1, .75], [1.1, 1.08, 1.1]), colB: mix3([1, .45, .25], [1, .95, 1.1]), colD: mix3([1, .1, .15], [.9, .9, 1.2]),
+      tubes: 1.8 * sstep(.35, .9, q), tubeF: .55, tubeW: .15, colT1: CRAB_COL.colT1, colT2: CRAB_COL.colT2,
+      seed: 9.1, fade: sstep(.075, .12, p), rot: [.2, .4, .1] });
+    part(parts.debris, { uMode: 0, uR0: v0 * .5, uExpand: base * 4.4 * easeOut(q), uHeat: lerp(1, .05, sstep(0, .45, q)), uSize: base * .02, uFade: sstep(.075, .11, p) * (1 - .7 * q) * .6, uColor: [1, .45, .25] });
+    if (grb) {
+      pulsar.visible = true; fieldLines.visible = false; magG.rotation.set(0, 0, 0); pulsar.rotation.set(0, 0, 0);
+      const gi = sstep(.07, .09, p) * (1 - sstep(.16, .38, p));
+      beams.forEach(b => b.scale.set(base * .35, base * 9, base * .35)); beamMat.uniforms.uI.value = gi * 4; beamMat.uniforms.uCol.value.setRGB(.8, .88, 1);
+    }
+    F.flash = sstep(.07, .085, p) * (1 - sstep(.085, .17, p)) * (grb ? 1 : .9);
+    F.expo = 1 + env * .7;
+    F.bloom = env * 1.2;
+    F.shake = sstep(.07, .085, p) * (1 - sstep(.085, .3, p)) * base * .03;
+    F.frame = Math.max(pv.kind === 'rsg' ? growEnd(pv) : v0 * 1.08, base * lerp(1, 4.2, easeOut(q)) * lerp(1.4, .95, q));
+  },
+  ns(c, p) {
+    const base = snBase(prevC(c));
+    showStar({ vis: .12, R: 1.4e-5, T: 60000, cell: 5, contrast: .08, flow: 3, bright: 1.6, gk: 28, gi: 1.2, rays: .1 });
+    vol(vols.shell, crabCfg(base, p, lerp(1, .45, sstep(.15, .5, p))));
+    pulsar.visible = true; fieldLines.visible = true;
+    pulsar.rotation.y = time * 2 * Math.PI * .45; magG.rotation.z = .5;
+    beams.forEach(b => b.scale.set(.75, 9, .75)); beamMat.uniforms.uI.value = 1.1 * sstep(.15, .3, p); beamMat.uniforms.uCol.value.setRGB(.55, .75, 1);
+    F.pulsar = true;
+    F.frame = lerp(base * 4.3 * 1.3, 2.2, easeInOut(sstep(.12, .5, p)));
+  },
+  bh(c, p) {
+    const base = snBase(prevC(c));
+    sky.material.uniforms.uBH.value = 1;
+    sky.material.uniforms.uDiskI.value = 1.6 * sstep(.05, .35, p);
+    if (p < .2) vol(vols.shell, crabCfg(base, 1, .5 * (1 - sstep(0, .2, p))));
+    F.frame = lerp(base * 4.2 * .8, 8, easeInOut(sstep(0, .4, p)));
+  },
+  lbv(c, p) {
+    const { R, T } = RT(c.ph, p), v = vis(R), erupt = sstep(.2, .25, p) * (1 - sstep(.28, .5, p));
+    showStar({ vis: v, R, T, cell: 1.1, contrast: .45, flow: 1.2, gi: 1.1 + erupt * 2.5, gk: 9 });
+    const s = sstep(.2, 1, p);
+    vol(vols.shell, { scale: v * lerp(1.3, 5.2, easeOut(s)), rot: [.25, 0, .65], shellR: .6, thick: .2, bip: 1, waist: .07, nScale: 2, nAmp: .6, con: 2.5, fil: .3, dens: 4, abs: 3.5, emis: .1,
+      colA: [.9, .5, .35], colM: [.9, .5, .35], colB: [.9, .5, .35], light: 1.6, colC: [1, .58, .36], fade: sstep(.2, .32, p) * (1 - .5 * sstep(.85, 1, p)), seed: 3.3 });
+    F.expo = 1 + erupt * .8; F.bloom = erupt * .5;
+    F.frame = lerp(v * 1.1, v * 5.2 * .7, sstep(.2, .7, p));
+  },
+  wr(c, p) {
+    const { R, T } = RT(c.ph, p), v = vis(R);
+    showStar({ vis: v, R, T, cell: 2, contrast: .25, flow: 2, gi: 1.5, gk: 10 });
+    vol(vols.shell, { scale: 70, rot: [.3, .8, 0], shellR: .72, thick: .075, bip: .15, waist: .85, nScale: 1.8, nAmp: .6, warp: .3, con: 2.5, fil: .85, inner: .05, dens: 5, abs: .2, emis: .5,
+      colA: [.2, .7, .95], colM: [.85, .5, .6], colB: [1, .24, .3], fade: sstep(.05, .45, p), seed: 7.2 });
+    part(parts.wind, { uMode: 1, uR0: v, uR1: v * 9, uSpeed: .45, uSize: .03 * v, uFade: .35, uColor: [.6, .55, 1] });
+    F.frame = lerp(vis(c.ph.R[0]) * 1.1, 50, easeInOut(sstep(.1, .7, p)));
+  },
+};
+const prevC = c => ({ ...c, i: c.i - 1 });
+
+// ───────────────────────── UI ─────────────────────────
+let massIdx = 1, tNow = 0, playing = true, speed = 1, cutOn = false, userZoom = 1, camDist = 6, lastKey = '', titleTimer = 0;
+const SPEEDS = [.5, 1, 2, 4];
+function cur() {
+  const m = MASSES[massIdx];
+  for (let i = 0; i < m.phases.length; i++) {
+    const ph = m.phases[i];
+    if (tNow < ph.start + ph.dur || i === m.phases.length - 1) return { m, i, ph, M: parseFloat(m.label), p: clamp((tNow - ph.start) / ph.dur, 0, 1) };
+  }
+}
+function buildMass() {
+  const m = MASSES[massIdx];
+  $('masses').innerHTML = MASSES.map((x, i) => `<button data-i="${i}" class="${i === massIdx ? 'on' : ''}">${x.label}<small>${x.sub}</small></button>`).join('');
+  $('chips').innerHTML = m.phases.map((ph, i) => `<button data-i="${i}">${ph.name.split(' (')[0].split(' — ')[0].split(' · ')[0]}<span class="fill"></span></button>`).join('');
+  $('scrub').max = m.total;
+  drawHRBase();
+}
+$('masses').onclick = e => { const b = e.target.closest('button'); if (!b) return; massIdx = +b.dataset.i; tNow = 0; userZoom = 1; playing = true; lastKey = ''; buildMass(); syncPlay(); };
+$('chips').onclick = e => { const b = e.target.closest('button'); if (!b) return; tNow = MASSES[massIdx].phases[+b.dataset.i].start + .001; };
+$('scrub').oninput = e => { tNow = +e.target.value; };
+const syncPlay = () => { $('play').textContent = playing ? '❚❚' : '▶'; };
+$('play').onclick = () => { if (!playing && tNow >= MASSES[massIdx].total) tNow = 0; playing = !playing; syncPlay(); };
+$('restart').onclick = () => { tNow = 0; playing = true; syncPlay(); };
+$('spd').onclick = () => { speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]; $('spd').textContent = speed + '×'; };
+$('tCut').onclick = () => { cutOn = !cutOn; $('tCut').classList.toggle('on', cutOn); };
+$('tRot').onclick = () => { controls.autoRotate = !controls.autoRotate; $('tRot').classList.toggle('on', controls.autoRotate); };
+$('tQ').onclick = () => { qHigh = !qHigh; $('tQ').textContent = '화질: ' + (qHigh ? '높음' : '보통'); setPR(); onResize(); };
+addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); $('play').click(); }
+  const c = cur();
+  if (e.code === 'ArrowRight' && c.i < c.m.phases.length - 1) tNow = c.m.phases[c.i + 1].start + .001;
+  if (e.code === 'ArrowLeft') tNow = c.m.phases[Math.max(0, c.p < .08 ? c.i - 1 : c.i)].start + .001;
+});
+canvas.addEventListener('wheel', e => { e.preventDefault(); userZoom = clamp(userZoom * Math.exp(e.deltaY * .0012), .06, 8); }, { passive: false });
+let pinch = 0;
+canvas.addEventListener('touchmove', e => { if (e.touches.length === 2) { const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); if (pinch) userZoom = clamp(userZoom * pinch / d, .06, 8); pinch = d; } }, { passive: true });
+canvas.addEventListener('touchend', () => { pinch = 0; });
+
+// HR도
+const hr = $('hr'), hctx = hr.getContext('2d'), HW = 280, HH = 240, hrBase = document.createElement('canvas');
+const HRX = { T0: 60000, T1: 2300, L0: 1e-4, L1: 3e6, l: 34, r: 8, t: 8, b: 28 };
+function hrXY(T, L) {
+  const x = (Math.log(HRX.T0) - Math.log(clamp(T, HRX.T1, HRX.T0))) / (Math.log(HRX.T0) - Math.log(HRX.T1));
+  const y = 1 - (Math.log10(clamp(L, HRX.L0, HRX.L1)) - Math.log10(HRX.L0)) / (Math.log10(HRX.L1) - Math.log10(HRX.L0));
+  return [HRX.l + x * (HW - HRX.l - HRX.r), HRX.t + y * (HH - HRX.t - HRX.b)];
+}
+function trackPts() {
+  const pts = [];
+  for (const ph of MASSES[massIdx].phases) if (!HR_SKIP.has(ph.kind)) for (let j = 0; j <= 30; j++) { const { R, T } = RT(ph, j / 30); pts.push([ph.start + ph.dur * j / 30, ...hrXY(T, lum(R, T))]); }
+  return pts;
+}
+let TRACK = [];
+function drawHRBase() {
+  const d = devicePixelRatio; hr.width = hrBase.width = HW * d; hr.height = hrBase.height = HH * d;
+  const g = hrBase.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, HW, HH);
+  for (let i = 0; i < 60; i++) { const T = Math.exp(lerp(Math.log(HRX.T0), Math.log(HRX.T1), i / 60)); const [x] = hrXY(T, 1); g.fillStyle = cssBB(T); g.globalAlpha = .07; g.fillRect(x, HRX.t, (HW - HRX.l) / 58, HH - HRX.t - HRX.b); }
+  g.globalAlpha = 1;
+  const ms = [[45000, 3e5], [30000, 5e4], [15000, 800], [9500, 25], [7200, 4], [5800, 1], [4400, .2], [3400, .012], [2700, .0012]];
+  g.lineWidth = 13; g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = 'rgba(160,190,255,.13)';
+  g.beginPath(); ms.forEach(([T, L], i) => { const [x, y] = hrXY(T, L); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+  g.font = '10px Noto Sans KR'; g.fillStyle = 'rgba(200,215,255,.55)';
+  const lab = (t, T, L) => { const [x, y] = hrXY(T, L); g.fillText(t, x, y); };
+  lab('주계열', 9000, 4); lab('거성', 4600, 400); lab('초거성', 9000, 4e5); lab('백색왜성', 38000, 1.5e-3);
+  g.strokeStyle = 'rgba(160,190,255,.3)'; g.lineWidth = 1; g.strokeRect(HRX.l, HRX.t, HW - HRX.l - HRX.r, HH - HRX.t - HRX.b);
+  g.fillStyle = 'rgba(180,195,230,.8)'; g.font = '9.5px Noto Sans KR';
+  for (const T of [40000, 20000, 10000, 5000, 3000]) { const [x] = hrXY(T, 1); g.fillText(T >= 10000 ? T / 1000 + 'k' : T, x - 10, HH - 16); }
+  for (const e of [-4, -2, 0, 2, 4, 6]) { const [, y] = hrXY(5000, 10 ** e); g.fillText('10' + (e < 0 ? '⁻' : '') + '⁰¹²³⁴⁵⁶'[Math.abs(e)], 4, y + 3); }
+  g.fillText('← 뜨거움   표면 온도 (K)   차가움 →', 58, HH - 4);
+  g.fillText('광도', 4, 18);
+  TRACK = trackPts();
+}
+function drawHR(c) {
+  hctx.setTransform(1, 0, 0, 1, 0, 0); hctx.clearRect(0, 0, hr.width, hr.height); hctx.drawImage(hrBase, 0, 0);
+  const d = devicePixelRatio; hctx.setTransform(d, 0, 0, d, 0, 0);
+  hctx.lineWidth = 1.6;
+  for (let i = 1; i < TRACK.length; i++) {
+    const a = TRACK[i - 1], b = TRACK[i]; if (b[0] - a[0] > 3) continue;
+    hctx.strokeStyle = b[0] <= tNow ? 'rgba(255,215,130,.95)' : 'rgba(255,255,255,.18)';
+    hctx.beginPath(); hctx.moveTo(a[1], a[2]); hctx.lineTo(b[1], b[2]); hctx.stroke();
+  }
+  if (!HR_SKIP.has(c.ph.kind) && F.T) {
+    const [x, y] = hrXY(F.T, lum(F.R, F.T));
+    const gr = hctx.createRadialGradient(x, y, 0, x, y, 12); gr.addColorStop(0, cssBB(F.T)); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    hctx.fillStyle = gr; hctx.beginPath(); hctx.arc(x, y, 12, 0, 7); hctx.fill();
+    hctx.fillStyle = '#fff'; hctx.beginPath(); hctx.arc(x, y, 2.6, 0, 7); hctx.fill();
+  } else { hctx.fillStyle = 'rgba(255,210,122,.9)'; hctx.font = '11px Noto Sans KR'; hctx.fillText(c.ph.kind === 'cloud' ? '아직 별이 아님' : 'H-R도 밖의 천체', 150, 40); }
+}
+
+// 펄스 그래프
+const pc = $('pulse'), pctx = pc.getContext('2d'), PULSE = new Float32Array(280);
+function drawPulse(v) {
+  PULSE.copyWithin(0, 1); PULSE[279] = v;
+  const d = devicePixelRatio; if (pc.width !== 280 * d) { pc.width = 280 * d; pc.height = 70 * d; }
+  pctx.setTransform(d, 0, 0, d, 0, 0); pctx.clearRect(0, 0, 280, 70);
+  pctx.strokeStyle = '#8fc0ff'; pctx.lineWidth = 1.5; pctx.beginPath();
+  for (let i = 0; i < 280; i++) { const y = 64 - Math.min(PULSE[i], 1) * 56; i ? pctx.lineTo(i, y) : pctx.moveTo(i, y); }
+  pctx.stroke();
+}
+
+// 실제 크기 비교
+const sc = $('size'), sctx = sc.getContext('2d');
+function drawSize(c) {
+  const d = devicePixelRatio; if (sc.width !== 308 * d) { sc.width = 308 * d; sc.height = 74 * d; }
+  sctx.setTransform(d, 0, 0, d, 0, 0); sctx.clearRect(0, 0, 308, 74);
+  sctx.font = '11px Noto Sans KR'; sctx.fillStyle = '#9aabd4';
+  if (HR_SKIP.has(c.ph.kind) || !F.R) {
+    const t = { cloud: '분자구름: 지름 수 광년 (태양계의 수만 배)', sn: '폭발 잔해: 수일 만에 태양계 크기를 넘어섬', ns: '지름 약 20 km — 서울시 크기 정도!', bh: '사건의 지평선: 지름 약 60~90 km' }[c.ph.kind];
+    sctx.fillText(t, 4, 40); return;
+  }
+  const items = [['이 별', F.R, cssBB(F.T)], ['태양', 1, cssBB(5778)]];
+  if (F.R < .05) items.push(['지구', .0092, '#5fa8ff']);
+  const big = Math.max(...items.map(i => i[1])), maxR = 30; let x = 6;
+  for (const [n, r, col] of items) {
+    const pr = Math.max(r / big * maxR, .7);
+    const cx = x + Math.min(pr, maxR);
+    sctx.fillStyle = col; sctx.beginPath(); sctx.arc(cx, 34, pr, 0, 7); sctx.fill();
+    sctx.fillStyle = '#cfd8f5'; sctx.textAlign = 'center'; sctx.fillText(n, Math.max(cx, 14), 72); sctx.textAlign = 'left';
+    x = cx + Math.max(Math.min(pr, maxR), 8) + 22;
+  }
+  sctx.fillStyle = '#ffd27a';
+  const ratio = F.R >= 1 ? `태양의 ${F.R >= 10 ? Math.round(F.R) : F.R.toFixed(1)}배` : `태양의 1/${Math.round(1 / F.R)}`;
+  sctx.fillText(ratio, 200, 18);
+  if (F.R > 100) sctx.fillText(F.R > 600 ? '목성 궤도까지 삼킴' : F.R > 200 ? '지구 궤도를 넘음' : '금성 궤도까지', 200, 34);
+}
+
+// 정보 패널
+const fmt = x => x >= 1e5 ? x.toExponential(1).replace('e+', '×10^') : x >= 100 ? Math.round(x).toLocaleString() : x >= 1 ? x.toFixed(1) : x >= .01 ? x.toFixed(3) : x.toExponential(1).replace('e-', '×10^-');
+const spec = T => T > 30000 ? 'O' : T > 10000 ? 'B' : T > 7500 ? 'A' : T > 6000 ? 'F' : T > 5200 ? 'G' : T > 3700 ? 'K' : 'M';
+let infoKey = '';
+function updateInfo(c) {
+  const key = massIdx + '-' + c.i;
+  if (key !== infoKey) {
+    infoKey = key;
+    $('tag').textContent = `${c.m.label} ${c.m.sub} · ${c.i + 1}/${c.m.phases.length}단계`;
+    $('pname').textContent = c.ph.name; $('pex').textContent = c.ph.ex; $('desc').textContent = c.ph.desc;
+    const L = LAYERS[c.ph.layers];
+    $('legend').innerHTML = L ? '<div style="color:#9aabd4">단면 구조' + (c.ph.kind === 'rsg' ? ' (내부 층 크기는 과장)' : '') + '</div>' + L.map(l => `<div><i style="background:${l[1]}"></i>${l[2]}</div>`).join('') : '';
+    if (key !== lastKey) { lastKey = key; $('ta').textContent = c.m.label + ' · ' + (c.i + 1) + '단계'; $('tb').textContent = c.ph.name; $('title').style.opacity = 1; titleTimer = 2.6; }
+  }
+  $('legend').style.display = cutOn && LAYERS[c.ph.layers] && star.visible ? 'block' : 'none';
+  let rows = c.ph.stats ? [...c.ph.stats] : [];
+  if (!c.ph.stats && F.R) {
+    const wd = c.ph.kind === 'wd';
+    rows = [['반지름', F.R < .1 ? Math.round(F.R * 696000).toLocaleString() + ' km' : fmt(F.R) + ' R☉' + (F.R > 50 ? ` (${(F.R * .00465).toFixed(2)} AU)` : '')],
+      ['표면 온도', (Math.round(F.T / 10) * 10).toLocaleString() + ' K'], ['광도', fmt(lum(F.R, F.T)) + ' L☉'], ['분광형', wd ? 'D (백색왜성)' : spec(F.T) + '형']];
+  }
+  rows.push(['단계 기간', c.ph.age]);
+  $('stats').innerHTML = rows.map(([a, b]) => `<b>${a}</b><span>${b}</span>`).join('');
+  let cap = ''; for (const [t, s] of c.ph.steps || []) if (c.p >= t) cap = s;
+  if ($('caption').textContent !== cap) $('caption').textContent = cap;
+  $('caption').style.opacity = cap ? 1 : 0;
+  $('scrub').value = tNow;
+  [...$('chips').children].forEach((b, i) => { const ph = c.m.phases[i]; b.classList.toggle('on', i === c.i); b.querySelector('.fill').style.width = clamp((tNow - ph.start) / ph.dur, 0, 1) * 100 + '%'; });
+}
+
+// ───────────────────────── 루프 ─────────────────────────
+const clock = new THREE.Clock(), tmpV = new THREE.Vector3();
+function resetFX() {
+  Object.assign(F, { frame: 1, flash: 0, expo: 1, bloom: 0, shake: 0, pulsar: false, starVis: 0, T: 0, R: 0 });
+  star.visible = glow.visible = false; pulsar.visible = false;
+  for (const k in vols) vols[k].visible = false;
+  for (const k in parts) parts[k].visible = false;
+  sky.material.uniforms.uBH.value = 0;
+  starU.uFlare.value = 0;
+}
+function onResize() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h, false); composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h);
+  bloom.resolution.set(w, h);
+}
+let lastW = 0, lastH = 0;
+
+function frame() {
+  const dt = Math.min(clock.getDelta(), .05); time += dt;
+  if (canvas.clientWidth && (canvas.clientWidth !== lastW || canvas.clientHeight !== lastH)) { lastW = canvas.clientWidth; lastH = canvas.clientHeight; onResize(); }
+  if (playing) { tNow += dt * speed; const tot = MASSES[massIdx].total; if (tNow >= tot) { tNow = tot; playing = false; syncPlay(); } }
+  const c = cur();
+  resetFX();
+  KIND[c.ph.kind](c, c.p);
+
+  // 카메라 (자동 프레이밍 + 사용자 줌)
+  const want = 4.2 * Math.pow(Math.max(F.frame, .05), .92) * userZoom;
+  camDist = isFinite(camDist) ? Math.exp(lerp(Math.log(camDist), Math.log(want), 1 - Math.exp(-dt * 1.8))) : want;
+  controls.update();
+  camera.position.setLength(camDist);
+  camera.near = Math.max(camDist * .004, .002); camera.far = camDist * 60 + 2000; camera.updateProjectionMatrix();
+  sky.position.copy(camera.position); sky.scale.setScalar(camera.far * .9);
+  world.position.set((Math.random() - .5) * F.shake, (Math.random() - .5) * F.shake, (Math.random() - .5) * F.shake);
+  world.updateMatrixWorld(true);
+
+  // 셰이더 공통 갱신
+  starU.uTime.value = time; starU.uSeed.value = c.m.seed;
+  glow.quaternion.copy(camera.quaternion); glow.material.uniforms.uTime.value = time;
+  sky.material.uniforms.uTime.value = time;
+  for (const k in vols) {
+    const v = vols[k]; if (!v.visible) continue; const u = v.material.uniforms;
+    u.uTime.value = time; u.uCam.value.copy(v.worldToLocal(tmpV.copy(camera.position)));
+    u.uStarR.value = star.visible ? F.starVis / v.scale.x : 0;
+  }
+  const pix = renderer.domElement.height / 2 / Math.tan(camera.fov * Math.PI / 360);
+  for (const k in parts) { const u = parts[k].material.uniforms; u.uTime.value = time; u.uPix.value = pix; }
+
+  // 단면 보기
+  const L = LAYERS[c.ph.layers], cut = cutOn && L && star.visible && !starU.uHot.value;
+  starU.uCut.value = cut ? 1 : 0; cutDisk.visible = !!cut; star.material.transparent = !!cut;
+  if (cut) {
+    cutDisk.quaternion.copy(camera.quaternion); cutDisk.scale.setScalar(F.starVis * .97);
+    cutU.uN.value = L.length; cutU.uTime.value = time;
+    L.forEach((l, i) => { const col = new THREE.Color(l[1]); cutU.uL.value[i].set(col.r, col.g, col.b, l[0]); cutU.uC.value[i] = l[3] ? 1 : 0; });
+  }
+
+  // 펄서 신호
+  $('pulseBox').style.display = F.pulsar ? 'block' : 'none';
+  if (F.pulsar) {
+    const bd = new THREE.Vector3(0, 1, 0).applyQuaternion(magG.getWorldQuaternion(new THREE.Quaternion()));
+    const tc = tmpV.copy(camera.position).sub(world.position).normalize(), dp = bd.dot(tc);
+    const s = Math.pow(Math.max(dp, 0), 40) + Math.pow(Math.max(-dp, 0), 40);
+    drawPulse(s); glow.material.uniforms.uI.value = 1 + s * 6;
+    $('pulseBox').style.top = ($('hrBox').getBoundingClientRect().bottom + 8) + 'px';
+  }
+
+  renderer.toneMappingExposure = F.expo;
+  bloom.strength = .6 + F.bloom;
+  $('flash').style.opacity = F.flash;
+  if (titleTimer > 0) { titleTimer -= dt; if (titleTimer <= 0) $('title').style.opacity = 0; }
+
+  composer.render();
+  updateInfo(c); drawHR(c); drawSize(c);
+}
+function loop() { frame(); requestAnimationFrame(loop); }
+buildMass(); syncPlay();
+// 콘솔 디버그용: SE.seek(질량번호, 단계번호, 진행률)
+window.SE = { OV, parts, vols, step(n = 1) { for (let i = 0; i < n; i++) frame(); }, dbg: () => ({ rt: [composer.renderTarget1.width, composer.renderTarget1.height], calls: renderer.info.render.calls, camDist, frame: F.frame, cam: camera.position.toArray(), prog: renderer.info.programs.length }), seek(mi, i, p = 0) { if (mi !== massIdx) { massIdx = mi; buildMass(); } const ph = MASSES[mi].phases[i]; tNow = ph.start + ph.dur * p; playing = false; syncPlay(); camDist = NaN; userZoom = 1; } };
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
